@@ -125,12 +125,15 @@ table entry.
 | Command      | Aliases | Usage              | Action                                      |
 | ------------ | ------- | ------------------ | ------------------------------------------- |
 | `help`       | `?`, `commands` | `/help`     | List registered commands.                   |
-| `clear`      | —       | `/clear`           | Clear the chat transcript.                  |
+| `clear`      | —       | `/clear`           | Clear conversation history and transcript.  |
 | `exit`       | `quit`  | `/exit`            | End the chat session.                       |
 | `model`      | —       | `/model [name]`    | Show or switch the active model.            |
 | `provider`   | —       | `/provider [name]` | Show or switch the active provider.         |
 | `effort`     | —       | `/effort [level]`  | Show or change the effort level.            |
+| `fast`       | —       | `/fast`            | Session-only switch to low effort.          |
 | `sessions`   | `s`     | `/sessions`        | Open the saved session picker.              |
+| `rename`     | —       | `/rename <title>`  | Rename the current session persistently.    |
+| `resume`     | —       | `/resume [<id\|title>]` | Resume a session by ID/prefix or exact title; bare opens the picker. |
 | `workspace`  | —       | `/workspace`       | Describe the current repository.            |
 | `index`      | —       | `/index`           | Show the repository index summary.          |
 | `status`     | —       | `/status`          | Summarize project and agent setup.          |
@@ -138,6 +141,7 @@ table entry.
 | `doctor`     | —       | `/doctor`          | Environment check inside the chat.          |
 | `skills`     | —       | `/skills`          | List skills the agent can load.             |
 | `copy`       | —       | `/copy [target]`   | Copy the last response or transcript.       |
+| `export`     | —       | `/export [path]`   | Write the conversation to a Markdown file.  |
 | `connect`    | —       | `/connect [import]`| Connect a provider interactively.           |
 | `import`     | —       | `/import`          | Import provider config from other tools.    |
 | `memory`     | —       | `/memory [sub]`    | Inspect or manage project memory.           |

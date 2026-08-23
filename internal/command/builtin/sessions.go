@@ -53,6 +53,12 @@ func SessionTitle(s session.Session) string {
 }
 
 func sessionTitle(s session.Session) string {
+	// A user-given title always wins; everything below is the legacy
+	// derived preview for untitled (and pre-M3.2) sessions.
+	if t := strings.TrimSpace(s.Title); t != "" {
+		return t
+	}
+
 	for _, msg := range s.Messages {
 		if msg.Role == "user" && strings.TrimSpace(msg.Content) != "" {
 			title := strings.TrimSpace(msg.Content)

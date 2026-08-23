@@ -23,9 +23,18 @@ A session is one conversation. Lato stores sessions as local JSON files so you c
 | Field       | Type        | Description                              |
 | ----------- | ----------- | ---------------------------------------- |
 | `ID`        | `string`    | Unique session ID.                       |
+| `Title`     | `string`    | Optional human-readable title (M3.2).    |
 | `CreatedAt` | `time.Time` | Session creation time.                   |
 | `UpdatedAt` | `time.Time` | Last update time.                        |
 | `Messages`  | `[]Message` | Ordered message history.                 |
+
+Older session files without `title` load normally with an empty
+title; set one with `/rename <title>` inside Lato.
+
+`/resume <target>` resolves a session by exact ID, unique ID prefix
+(e.g. the 8-character short ID shown by /sessions), or exact Title —
+in that order. Ambiguous prefixes or duplicate titles are refused with
+the candidates listed; resolution never renames or modifies sessions.
 
 ## Storage Location
 

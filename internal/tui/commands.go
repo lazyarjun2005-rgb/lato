@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,14 +31,18 @@ func newRegistry() *command.Registry {
 	reg.Register(builtin.NewModel())
 	reg.Register(builtin.NewProvider())
 	reg.Register(builtin.NewEffort())
+	reg.Register(builtin.NewFast())
 	reg.Register(builtin.NewConnect())
 	reg.Register(builtin.NewImportCmd())
 	reg.Register(builtin.NewCopy())
+	reg.Register(builtin.NewExport())
 	reg.Register(builtin.NewMemory())
 	reg.Register(builtin.NewTask())
 	reg.Register(builtin.NewPermissions())
 	reg.Register(builtin.NewHelp(reg))
 	reg.Register(builtin.NewSessions())
+	reg.Register(builtin.NewRename())
+	reg.Register(builtin.NewResume())
 	reg.Register(builtin.NewWorkspace())
 	reg.Register(builtin.NewIndex())
 	reg.Register(builtin.NewVersion())
@@ -367,6 +373,110 @@ func (m *model) SubmitPrompt(prompt string) error {
 	m.waiting = true
 	m.refreshTranscript()
 	return nil
+}
+
+// --- session identity -------------------------------------------------------
+
+// RenameSession gives the active session a persistent human-readable
+// title and saves it immediately, so /sessions and future launches see
+// the new name. The transcript is not modified: the confirmation is the
+// command's own Println output.
+func (m *model) RenameSession(title string) error {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return errors.New("session title cannot be empty")
+	}
+	if m.session == nil {
+		return errors.New("no active session")
+	}
+	m.session.Rename(title)
+	if err := m.session.Save(); err != nil {
+		return fmt.Errorf("save session: %w", err)
+	}
+	return nil
+}
+
+// ResumeSession resolves idOrTitle against saved sessions — exact ID,
+// unique ID prefix, or exact Title, never fuzzy and never guessing —
+// and switches to it through the same core the /sessions picker uses.
+// Resolution is read-only: nothing is renamed or rewritten here.
+func (m *model) ResumeSession(idOrTitle string) error {
+	sessions, err := session.List()
+	if err != nil {
+		return fmt.Errorf("list sessions: %w", err)
+	}
+	chosen, err := session.ResolveSession(idOrTitle, sessions)
+	if err != nil {
+		return err
+	}
+	return m.applySessionSwitch(chosen.ID)
+}
+
+// ClearConversation resets the current conversation: the visible
+// transcript and the session's persisted Messages are emptied, while
+// the session itself (ID, CreatedAt, Title) survives untouched. The
+// next request starts from clean history.
+//
+// Refused while a stream is active — history must never be pulled out
+// from under a running agent loop, and there is nothing to cancel here.
+// If persistence fails after the in-memory reset, the error is
+// reported; the divergence heals on the next successful Save.
+func (m *model) ClearConversation() error {
+	if m.waiting {
+		return errors.New("cannot clear conversation while Lato is busy")
+	}
+	if m.session == nil {
+		return errors.New("no active session")
+	}
+
+	m.Clear()
+	m.session.ClearMessages()
+	if err := m.session.Save(); err != nil {
+		return fmt.Errorf("save session: %w", err)
+	}
+	return nil
+}
+
+// ExportConversation writes the current conversation to path as
+// Markdown and returns the destination actually written. An empty path
+// selects a deterministic, sanitized default derived from the session's
+// title (falling back to its short ID).
+//
+// Safety rules: an existing destination is never overwritten; the
+// parent directory must already exist (no surprise directory trees);
+// only persisted session messages are rendered — credentials,
+// configuration, memory, tasks, and runtime state are unreachable from
+// here by construction.
+func (m *model) ExportConversation(path string) (string, error) {
+	if m.session == nil {
+		return "", errors.New("no active session")
+	}
+	if len(m.session.Messages) == 0 {
+		return "", errors.New("nothing to export yet — the conversation is empty")
+	}
+
+	dest := strings.TrimSpace(path)
+	if dest == "" {
+		dest = m.session.DefaultExportFilename()
+	}
+
+	if _, err := os.Stat(dest); err == nil {
+		return "", fmt.Errorf("refusing to overwrite existing destination %s", dest)
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("stat %s: %w", dest, err)
+	}
+
+	dir := filepath.Dir(dest)
+	if d, err := os.Stat(dir); err != nil {
+		return "", fmt.Errorf("destination directory does not exist: %s", dir)
+	} else if !d.IsDir() {
+		return "", fmt.Errorf("destination directory is not a directory: %s", dir)
+	}
+
+	if err := os.WriteFile(dest, []byte(m.session.Markdown()), 0o644); err != nil {
+		return "", fmt.Errorf("write %s: %w", dest, err)
+	}
+	return dest, nil
 }
 
 // --- permissions (M13) ----------------------------------------------------

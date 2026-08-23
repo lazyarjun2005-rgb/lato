@@ -305,11 +305,20 @@ func TestPaletteArrowNavigation(t *testing.T) {
 // dispatcher — /clear really clears.
 func TestEnterAcceptsAndExecutes(t *testing.T) {
 	m := typeInto(newPaletteTestModel(), "/cle")
+	// /clear now performs a real conversation reset (M3.3), which needs
+	// a session and its CWD-relative store; production always has one.
+	t.Chdir(t.TempDir())
+	m.session = session.New()
+
 	next, _ := m.handleKey(keyMsg(tea.KeyEnter, ""))
 	done := next.(model)
 
-	if len(done.entries) != 0 {
-		t.Errorf("/clear did not execute: %d entries remain", len(done.entries))
+	if len(done.entries) != 1 || done.entries[0].Role != roleSystem ||
+		!strings.Contains(done.entries[0].Content, "Conversation cleared") {
+		t.Errorf("/clear did not execute: entries = %+v", done.entries)
+	}
+	if len(done.session.Messages) != 0 {
+		t.Errorf("session history survived /clear: %+v", done.session.Messages)
 	}
 	if done.input.Value() != "" {
 		t.Errorf("input not consumed after submit: %q", done.input.Value())

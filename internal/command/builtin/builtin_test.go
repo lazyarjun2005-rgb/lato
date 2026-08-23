@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,19 +37,27 @@ type fakeContext struct {
 	refreshedModels      bool
 	refreshErr           error
 
-	latestResponse string
-	transcriptText string
-	clipboardText  string
-	clipboardErr   error
-	memorySummary  string
-	memoryErr      error
-	taskList       string
-	resumedTask    string
-	resumeErr      error
-	abandonErr     error
-	skillsSummary  string
-	submitted      []string
-	submitErr      error
+	latestResponse   string
+	transcriptText   string
+	clipboardText    string
+	clipboardErr     error
+	memorySummary    string
+	memoryErr        error
+	taskList         string
+	resumedTask      string
+	resumeErr        error
+	abandonErr       error
+	skillsSummary    string
+	submitted        []string
+	submitErr        error
+	renamedTitle     string
+	renameErr        error
+	clearConvErr     error
+	clearedConv      bool
+	exportedPath     string
+	exportErr        error
+	resumedSession   string
+	resumeSessionErr error
 
 	workspace workspace.Info
 	index     *index.Index
@@ -58,6 +67,11 @@ type fakeContext struct {
 	resetCalls         int
 	effort             string
 	sessionOnly        bool
+
+	setEffortCalls    int
+	lastEffortLevel   string
+	lastEffortPersist bool
+	setEffortErr      error
 }
 
 func (f *fakeContext) Println(format string, args ...any) {
@@ -77,10 +91,16 @@ func (f *fakeContext) CurrentEffort() string {
 }
 
 func (f *fakeContext) SetEffort(level string, persist bool) error {
+	if f.setEffortErr != nil {
+		return f.setEffortErr
+	}
 	lvl, err := effort.Parse(level)
 	if err != nil {
 		return err
 	}
+	f.setEffortCalls++
+	f.lastEffortLevel = lvl.String()
+	f.lastEffortPersist = persist
 	f.effort = lvl.String()
 	if !persist {
 		f.sessionOnly = true
@@ -149,6 +169,42 @@ func (f *fakeContext) SubmitPrompt(prompt string) error {
 	return nil
 }
 
+func (f *fakeContext) RenameSession(title string) error {
+	if f.renameErr != nil {
+		return f.renameErr
+	}
+	f.renamedTitle = title
+	return nil
+}
+
+func (f *fakeContext) ClearConversation() error {
+	if f.clearConvErr != nil {
+		return f.clearConvErr
+	}
+	f.clearedConv = true
+	return nil
+}
+
+func (f *fakeContext) ExportConversation(path string) (string, error) {
+	if f.exportErr != nil {
+		return "", f.exportErr
+	}
+	f.exportedPath = path
+	written := path
+	if written == "" {
+		written = "lato-session-exported.md"
+	}
+	return written, nil
+}
+
+func (f *fakeContext) ResumeSession(idOrTitle string) error {
+	if f.resumeSessionErr != nil {
+		return f.resumeSessionErr
+	}
+	f.resumedSession = idOrTitle
+	return nil
+}
+
 func (f *fakeContext) Workspace() workspace.Info { return f.workspace }
 
 func (f *fakeContext) Index() *index.Index { return f.index }
@@ -177,8 +233,23 @@ func TestClear(t *testing.T) {
 	if err := NewClear().Execute(ctx, nil); err != nil {
 		t.Fatalf("Clear.Execute returned an error: %v", err)
 	}
-	if !ctx.cleared {
-		t.Fatal("Clear.Execute did not call ctx.Clear()")
+	if !ctx.clearedConv {
+		t.Fatal("Clear.Execute did not request a conversation clear")
+	}
+	out := strings.Join(ctx.lines, "\n")
+	if !strings.Contains(out, "Conversation cleared") {
+		t.Errorf("confirmation missing:\n%s", out)
+	}
+}
+
+func TestClearPropagatesBusyError(t *testing.T) {
+	ctx := &fakeContext{clearConvErr: errors.New("cannot clear conversation while Lato is busy")}
+	err := NewClear().Execute(ctx, nil)
+	if err == nil || !strings.Contains(err.Error(), "busy") {
+		t.Fatalf("error = %v, want busy refusal", err)
+	}
+	if ctx.clearedConv {
+		t.Error("refused clear reported success")
 	}
 }
 

@@ -78,6 +78,12 @@ func (f *fakeContext) SkillsSummary() string { return "" }
 func (f *fakeContext) SubmitPrompt(string) error {
 	return nil
 }
+func (f *fakeContext) RenameSession(string) error { return nil }
+func (f *fakeContext) ClearConversation() error   { return nil }
+func (f *fakeContext) ExportConversation(string) (string, error) {
+	return "", nil
+}
+func (f *fakeContext) ResumeSession(string) error { return nil }
 func (f *fakeContext) Workspace() workspace.Info {
 	return workspace.Info{}
 }

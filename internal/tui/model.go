@@ -704,23 +704,31 @@ func (m model) handleSelectPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // spawns a new runtime or restarts the program: the same runtime keeps
 // running, just pointed at different conversation history from here on.
 func (m model) switchToSession(id string) (tea.Model, tea.Cmd) {
+	if err := m.applySessionSwitch(id); err != nil {
+		m.entries = append(m.entries, chatEntry{
+			Role:    roleError,
+			Content: err.Error(),
+		})
+	}
+	m.refreshTranscript()
+	return m, nil
+}
+
+// applySessionSwitch is the shared mutation core behind every session
+// switch (picker Enter and /resume alike). It loads id from disk and
+// swaps conversation state in place; a stream from the previous
+// session is dropped rather than left appending to the new transcript.
+// Already-active sessions are a no-op.
+func (m *model) applySessionSwitch(id string) error {
 	if m.session != nil && id == m.session.ID {
-		return m, nil // already the active session; nothing to do
+		return nil // already the active session; nothing to do
 	}
 
 	sess, err := session.Load(id)
 	if err != nil {
-		m.entries = append(m.entries, chatEntry{
-			Role:    roleError,
-			Content: fmt.Sprintf("failed to load session: %v", err),
-		})
-		m.refreshTranscript()
-		return m, nil
+		return fmt.Errorf("failed to load session: %v", err)
 	}
 
-	// A stream from the previous session is no longer relevant once we've
-	// switched conversations; drop it rather than let it keep appending
-	// to the new transcript.
 	m.stream = nil
 	m.waiting = false
 	m.status = ""
@@ -729,8 +737,7 @@ func (m model) switchToSession(id string) (tea.Model, tea.Cmd) {
 	m.session = sess
 	m.entries = sessionEntries(sess)
 	m.refreshTranscript()
-
-	return m, nil
+	return nil
 }
 
 // layout recomputes the viewport and input widths/heights after a resize.

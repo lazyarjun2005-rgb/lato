@@ -67,6 +67,29 @@ type Context interface {
 	// model/provider, the tool system, the permission gate, and the
 	// loop's bounded, honest termination without owning any of that.
 	SubmitPrompt(prompt string) error
+
+	// RenameSession gives the active session a persistent
+	// human-readable title and saves it immediately.
+	RenameSession(title string) error
+
+	// ClearConversation resets the CURRENT conversation: visible
+	// transcript and persisted Messages are emptied while the session
+	// itself (ID, CreatedAt, Title) survives. It must refuse while a
+	// stream is active. The next request then starts from a clean
+	// history.
+	ClearConversation() error
+
+	// ExportConversation writes the current conversation to path as a
+	// Markdown document and returns the path actually written. An
+	// empty path selects a safe default filename. Existing files are
+	// never overwritten; failures leave no success claim behind.
+	ExportConversation(path string) (string, error)
+
+	// ResumeSession resolves idOrTitle (exact ID, unique ID prefix, or
+	// exact Title — never fuzzy, never ambiguous guessing) and makes
+	// that session the active conversation, exactly as if it had been
+	// chosen in /sessions.
+	ResumeSession(idOrTitle string) error
 }
 
 // Command is a single slash command. Implementations are independent,
