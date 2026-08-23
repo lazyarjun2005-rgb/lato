@@ -1,0 +1,27 @@
+# Binaries
+lato
+lato.exe
+*.exe
+*.exe~
+
+# Build
+bin/
+dist/
+
+# Go
+vendor/
+
+# IDE
+.vscode/
+.idea/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lato
+.lato/
+
+# Claude
+.claude/
