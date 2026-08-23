@@ -59,6 +59,14 @@ type Context interface {
 	Index() *index.Index
 	PermissionsSummary() string
 	ResetPermissions() int
+
+	// SubmitPrompt sends prompt into the existing agent loop as a
+	// genuine user turn: it is recorded in the transcript and session,
+	// then answered through the same streaming runtime path as normal
+	// chat. Development commands use it so they inherit the current
+	// model/provider, the tool system, the permission gate, and the
+	// loop's bounded, honest termination without owning any of that.
+	SubmitPrompt(prompt string) error
 }
 
 // Command is a single slash command. Implementations are independent,

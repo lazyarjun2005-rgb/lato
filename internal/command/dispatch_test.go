@@ -75,6 +75,9 @@ func (f *fakeContext) AbandonTask(string) error {
 	return nil
 }
 func (f *fakeContext) SkillsSummary() string { return "" }
+func (f *fakeContext) SubmitPrompt(string) error {
+	return nil
+}
 func (f *fakeContext) Workspace() workspace.Info {
 	return workspace.Info{}
 }

@@ -72,6 +72,7 @@ Commands act on the session through a small interface. The TUI is the production
 | `TaskList` / `ResumeTask` / `AbandonTask` | Persistent task operations.|
 | `MemorySummary` and memory mutation methods | Project memory access.    |
 | `PermissionsSummary` / `ResetPermissions`  | Permission policy access.  |
+| `SubmitPrompt`       | Submit a prompt as a user turn into the existing agent loop. |
 
 ## Main Parts
 
@@ -91,6 +92,33 @@ Commands act on the session through a small interface. The TUI is the production
 4. If the line is a command, `Dispatch` looks up the name in the registry.
 5. If the name is unknown, dispatch returns an error with suggestions.
 6. If the name is known, the command runs against the context.
+
+## Development Commands
+
+The development family (`search`, `explain`, `debug`, `fix`, `test`,
+`build`, `run`, `review`, `refactor`, `code`) is data-driven: one
+`devCommand` table in `internal/command/builtin/devprompt.go` defines
+usage, description, and the agent directive. Executing one renders its
+arguments into a prompt and submits it through `Context.SubmitPrompt`,
+which records it as a genuine user turn and streams the answer through
+the ONE existing agent loop. These commands therefore inherit the
+current model/provider, the tool system, the permission gate, bounded
+turns, automatic tool-failure recovery, and honest completion. They
+never call a model themselves; adding or removing one is a single
+table entry.
+
+| Command    | Usage              | Required args |
+| ---------- | ------------------ | ------------- |
+| `search`   | `/search <topic>`  | yes           |
+| `explain`  | `/explain <target>`| yes           |
+| `debug`    | `/debug <symptom>` | yes           |
+| `fix`      | `/fix <problem>`   | yes           |
+| `test`     | `/test [target]`   | no            |
+| `build`    | `/build [target]`  | no            |
+| `run`      | `/run [what]`      | no            |
+| `review`   | `/review [target]` | no            |
+| `refactor` | `/refactor <goal>` | yes           |
+| `code`     | `/code <task>`     | yes           |
 
 ## Built-in Commands
 

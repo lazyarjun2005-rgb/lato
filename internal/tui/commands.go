@@ -43,6 +43,9 @@ func newRegistry() *command.Registry {
 	reg.Register(builtin.NewStatus())
 	reg.Register(builtin.NewDoctor())
 	reg.Register(builtin.NewSkills())
+	for _, c := range builtin.NewDevCommands() {
+		reg.Register(c)
+	}
 	return reg
 }
 
@@ -328,6 +331,42 @@ func (m *model) SkillsSummary() string {
 		b.WriteString("\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// --- prompt submission ------------------------------------------------------
+
+// SubmitPrompt sends prompt into the existing agent loop exactly as if
+// the user had typed it: it becomes a real user turn in the transcript
+// and the persisted session, and the answer streams through the same
+// runtime path as normal chat. Commands never see the stream itself;
+// submitInput promotes pendingStream into the live pipeline after
+// dispatch returns, so all loop behavior stays in one place.
+func (m *model) SubmitPrompt(prompt string) error {
+	if strings.TrimSpace(prompt) == "" {
+		return errors.New("cannot submit an empty prompt")
+	}
+	if m.session == nil {
+		return errors.New("no active session")
+	}
+
+	m.entries = append(m.entries, chatEntry{Role: roleUser, Content: prompt})
+	m.session.AddMessage("user", prompt)
+	if err := m.session.Save(); err != nil {
+		m.entries = append(m.entries, chatEntry{
+			Role:    roleError,
+			Content: fmt.Sprintf("failed to save session: %v", err),
+		})
+	}
+
+	stream, err := m.runtime.Stream(context.Background(), m.session.ProviderMessages())
+	if err != nil {
+		return err
+	}
+
+	m.pendingStream = stream
+	m.waiting = true
+	m.refreshTranscript()
+	return nil
 }
 
 // --- permissions (M13) ----------------------------------------------------

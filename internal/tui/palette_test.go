@@ -228,8 +228,10 @@ func TestPaletteCoReturnsConnectAndCopy(t *testing.T) {
 	for _, s := range m.palette.matches {
 		got = append(got, s.name)
 	}
-	if strings.Join(got, ",") != "connect,copy" {
-		t.Errorf("/co matched %v, want [connect copy]", got)
+	// "code" joined the c-commands in Milestone 2; registration order
+	// puts connect and copy before it.
+	if strings.Join(got, ",") != "connect,copy,code" {
+		t.Errorf("/co matched %v, want [connect copy code]", got)
 	}
 }
 

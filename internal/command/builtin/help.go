@@ -39,6 +39,7 @@ var helpSections = []struct {
 	{"Models & providers", []string{"connect", "import", "model", "provider"}},
 	{"Agent setup", []string{"effort", "skills", "status"}},
 	{"Project state", []string{"memory", "permissions", "task"}},
+	{"Development", []string{"build", "code", "debug", "explain", "fix", "refactor", "review", "run", "search", "test"}},
 	{"Diagnostics", []string{"doctor", "version"}},
 	{"Workspace", []string{"index", "workspace"}},
 }

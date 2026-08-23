@@ -47,6 +47,8 @@ type fakeContext struct {
 	resumeErr      error
 	abandonErr     error
 	skillsSummary  string
+	submitted      []string
+	submitErr      error
 
 	workspace workspace.Info
 	index     *index.Index
@@ -138,6 +140,14 @@ func (f *fakeContext) ResumeTask(idOrEmpty string) error {
 func (f *fakeContext) AbandonTask(id string) error { return f.abandonErr }
 
 func (f *fakeContext) SkillsSummary() string { return f.skillsSummary }
+
+func (f *fakeContext) SubmitPrompt(prompt string) error {
+	if f.submitErr != nil {
+		return f.submitErr
+	}
+	f.submitted = append(f.submitted, prompt)
+	return nil
+}
 
 func (f *fakeContext) Workspace() workspace.Info { return f.workspace }
 
