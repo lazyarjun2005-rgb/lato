@@ -36,6 +36,12 @@ title; set one with `/rename <title>` inside Lato.
 in that order. Ambiguous prefixes or duplicate titles are refused with
 the candidates listed; resolution never renames or modifies sessions.
 
+`/rewind [N]` removes the most recent N conversation turns from the
+current session and persists the result. A turn is one user request
+plus its assistant response when one exists, so an unanswered final
+request is removed by itself. It is a conversation-history operation
+only: files on disk, memory, tasks, and configuration are untouched.
+
 ## Storage Location
 
 Sessions are stored under the current working directory:

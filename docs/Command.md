@@ -134,6 +134,7 @@ table entry.
 | `sessions`   | `s`     | `/sessions`        | Open the saved session picker.              |
 | `rename`     | —       | `/rename <title>`  | Rename the current session persistently.    |
 | `resume`     | —       | `/resume [<id\|title>]` | Resume a session by ID/prefix or exact title; bare opens the picker. |
+| `rewind`     | —       | `/rewind [N]`      | Remove the last N conversation turns (history only). |
 | `workspace`  | —       | `/workspace`       | Describe the current repository.            |
 | `index`      | —       | `/index`           | Show the repository index summary.          |
 | `status`     | —       | `/status`          | Summarize project and agent setup.          |

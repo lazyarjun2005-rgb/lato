@@ -90,6 +90,13 @@ type Context interface {
 	// that session the active conversation, exactly as if it had been
 	// chosen in /sessions.
 	ResumeSession(idOrTitle string) error
+
+	// RewindConversation removes the most recent turns conversation
+	// turns from the CURRENT session and persists the result. It must
+	// refuse while a stream is active, validate before mutating, and
+	// leave memory and disk untouched when persistence fails. The
+	// returned count is the number of turns actually removed.
+	RewindConversation(turns int) (int, error)
 }
 
 // Command is a single slash command. Implementations are independent,

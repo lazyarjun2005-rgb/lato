@@ -58,6 +58,9 @@ type fakeContext struct {
 	exportErr        error
 	resumedSession   string
 	resumeSessionErr error
+	rewindCalls      int
+	lastRewindTurns  int
+	rewindErr        error
 
 	workspace workspace.Info
 	index     *index.Index
@@ -203,6 +206,15 @@ func (f *fakeContext) ResumeSession(idOrTitle string) error {
 	}
 	f.resumedSession = idOrTitle
 	return nil
+}
+
+func (f *fakeContext) RewindConversation(turns int) (int, error) {
+	if f.rewindErr != nil {
+		return 0, f.rewindErr
+	}
+	f.rewindCalls++
+	f.lastRewindTurns = turns
+	return turns, nil
 }
 
 func (f *fakeContext) Workspace() workspace.Info { return f.workspace }

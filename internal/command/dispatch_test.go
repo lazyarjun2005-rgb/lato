@@ -84,6 +84,9 @@ func (f *fakeContext) ExportConversation(string) (string, error) {
 	return "", nil
 }
 func (f *fakeContext) ResumeSession(string) error { return nil }
+func (f *fakeContext) RewindConversation(int) (int, error) {
+	return 0, nil
+}
 func (f *fakeContext) Workspace() workspace.Info {
 	return workspace.Info{}
 }

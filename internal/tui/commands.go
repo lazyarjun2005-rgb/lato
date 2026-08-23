@@ -43,6 +43,7 @@ func newRegistry() *command.Registry {
 	reg.Register(builtin.NewSessions())
 	reg.Register(builtin.NewRename())
 	reg.Register(builtin.NewResume())
+	reg.Register(builtin.NewRewind())
 	reg.Register(builtin.NewWorkspace())
 	reg.Register(builtin.NewIndex())
 	reg.Register(builtin.NewVersion())
@@ -410,6 +411,43 @@ func (m *model) ResumeSession(idOrTitle string) error {
 		return err
 	}
 	return m.applySessionSwitch(chosen.ID)
+}
+
+// RewindConversation removes the most recent conversation turns and
+// persists the result before anything is finalized:
+//
+//  1. refuse while a stream is active (history must never shift under
+//     a running request);
+//  2. snapshot the live state;
+//  3. let session.Rewind validate and mutate (its validation errors
+//     leave Messages untouched);
+//  4. persist — on failure the snapshot is restored, so memory and
+//     disk never diverge and no false success can be reported;
+//  5. only then rebuild the transcript from the persisted source of
+//     truth, exactly like a session switch.
+func (m *model) RewindConversation(turns int) (int, error) {
+	if m.waiting {
+		return 0, errors.New("cannot rewind conversation while Lato is busy")
+	}
+	if m.session == nil {
+		return 0, errors.New("no active session")
+	}
+
+	snapshotMsgs := append([]session.Message(nil), m.session.Messages...)
+	snapshotUpdated := m.session.UpdatedAt
+
+	if err := m.session.Rewind(turns); err != nil {
+		return 0, err
+	}
+	if err := m.session.Save(); err != nil {
+		m.session.Messages = snapshotMsgs
+		m.session.UpdatedAt = snapshotUpdated
+		return 0, fmt.Errorf("save session: %w", err)
+	}
+
+	m.entries = sessionEntries(m.session)
+	m.refreshTranscript()
+	return turns, nil
 }
 
 // ClearConversation resets the current conversation: the visible

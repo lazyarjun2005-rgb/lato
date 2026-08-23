@@ -48,6 +48,39 @@ func (s *Session) ClearMessages() {
 	s.UpdatedAt = time.Now()
 }
 
+// Rewind removes the most recent n conversation turns. A turn starts
+// at each persisted user message and extends through any following
+// assistant messages, so an incomplete final user turn (a request whose
+// response was never persisted) is removed exactly by itself.
+//
+// Validation happens before any mutation: n must be ≥ 1, the
+// conversation must contain at least one turn, and n may not exceed the
+// available turn count — a failed call leaves Messages untouched.
+// Persistence happens through the next Save call.
+func (s *Session) Rewind(n int) error {
+	if n < 1 {
+		return fmt.Errorf("turn count must be at least 1, got %d", n)
+	}
+
+	starts := make([]int, 0, len(s.Messages))
+	for i, msg := range s.Messages {
+		if msg.Role == "user" {
+			starts = append(starts, i)
+		}
+	}
+	if len(starts) == 0 {
+		return fmt.Errorf("conversation is empty; nothing to rewind")
+	}
+	if n > len(starts) {
+		return fmt.Errorf("cannot rewind %d turns; conversation contains %d turns", n, len(starts))
+	}
+
+	cut := starts[len(starts)-n]
+	s.Messages = s.Messages[:cut]
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
 // Markdown renders the persisted conversation as a deterministic
 // Markdown document: a fixed header, the optional title line, then one
 // section per message in conversation order. Only user and assistant

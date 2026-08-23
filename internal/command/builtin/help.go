@@ -35,7 +35,7 @@ var helpSections = []struct {
 	title string
 	names []string
 }{
-	{"Chat & output", []string{"clear", "copy", "exit", "export", "help", "rename", "resume", "sessions"}},
+	{"Chat & output", []string{"clear", "copy", "exit", "export", "help", "rename", "resume", "rewind", "sessions"}},
 	{"Models & providers", []string{"connect", "import", "model", "provider"}},
 	{"Agent setup", []string{"effort", "fast", "skills", "status"}},
 	{"Project state", []string{"memory", "permissions", "task"}},
