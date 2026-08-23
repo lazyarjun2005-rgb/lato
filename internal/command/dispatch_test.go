@@ -71,7 +71,10 @@ func (f *fakeContext) ForgetMemory(string) error     { return nil }
 func (f *fakeContext) ClearMemory() error            { return nil }
 func (f *fakeContext) TaskList() string              { return "" }
 func (f *fakeContext) ResumeTask(string) error       { return nil }
-func (f *fakeContext) AbandonTask(string) error      { return nil }
+func (f *fakeContext) AbandonTask(string) error {
+	return nil
+}
+func (f *fakeContext) SkillsSummary() string { return "" }
 func (f *fakeContext) Workspace() workspace.Info {
 	return workspace.Info{}
 }

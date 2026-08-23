@@ -39,6 +39,10 @@ func newRegistry() *command.Registry {
 	reg.Register(builtin.NewSessions())
 	reg.Register(builtin.NewWorkspace())
 	reg.Register(builtin.NewIndex())
+	reg.Register(builtin.NewVersion())
+	reg.Register(builtin.NewStatus())
+	reg.Register(builtin.NewDoctor())
+	reg.Register(builtin.NewSkills())
 	return reg
 }
 
@@ -303,6 +307,27 @@ func (m *model) AbandonTask(id string) error {
 		return err
 	}
 	return m.runtime.TaskStore().SetStatus(id, task.StatusAbandoned)
+}
+
+// --- skills ----------------------------------------------------------------
+
+// SkillsSummary renders the discovered skill catalog as a compact
+// listing, or "" when no skill files exist. Bodies are not shown: they
+// load on demand through the agent's load_skill tool.
+func (m *model) SkillsSummary() string {
+	catalog := m.runtime.SkillCatalog()
+	if len(catalog) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, s := range catalog {
+		fmt.Fprintf(&b, "%s — %s", s.ID, s.Name)
+		if s.Description != "" {
+			fmt.Fprintf(&b, ": %s", s.Description)
+		}
+		b.WriteString("\n")
+	}
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // --- permissions (M13) ----------------------------------------------------

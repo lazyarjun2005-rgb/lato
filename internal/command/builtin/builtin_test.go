@@ -46,6 +46,7 @@ type fakeContext struct {
 	resumedTask    string
 	resumeErr      error
 	abandonErr     error
+	skillsSummary  string
 
 	workspace workspace.Info
 	index     *index.Index
@@ -135,6 +136,8 @@ func (f *fakeContext) ResumeTask(idOrEmpty string) error {
 	return f.resumeErr
 }
 func (f *fakeContext) AbandonTask(id string) error { return f.abandonErr }
+
+func (f *fakeContext) SkillsSummary() string { return f.skillsSummary }
 
 func (f *fakeContext) Workspace() workspace.Info { return f.workspace }
 

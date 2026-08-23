@@ -23,7 +23,7 @@ func NewHelp(reg *command.Registry) *Help {
 }
 
 func (Help) Name() string        { return "help" }
-func (Help) Aliases() []string   { return []string{"?"} }
+func (Help) Aliases() []string   { return []string{"?", "commands"} }
 func (Help) Description() string { return "List available commands." }
 func (Help) Usage() string       { return "/help" }
 
@@ -37,7 +37,9 @@ var helpSections = []struct {
 }{
 	{"Chat & output", []string{"clear", "copy", "exit", "help", "sessions"}},
 	{"Models & providers", []string{"connect", "import", "model", "provider"}},
+	{"Agent setup", []string{"effort", "skills", "status"}},
 	{"Project state", []string{"memory", "permissions", "task"}},
+	{"Diagnostics", []string{"doctor", "version"}},
 	{"Workspace", []string{"index", "workspace"}},
 }
 

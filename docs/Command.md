@@ -64,9 +64,14 @@ Commands act on the session through a small interface. The TUI is the production
 | `Quit`               | End the interactive session.                     |
 | `Model` / `SetModel` | Read or change the active model.                 |
 | `Provider` / `SetProvider` | Read or change the active provider.        |
+| `CurrentEffort` / `SetEffort` | Read or change the effort level.        |
 | `OpenSessionPicker`  | Open the session selection UI.                   |
 | `Workspace`          | Read the workspace description.                  |
 | `Index`              | Read the cached repository index.                |
+| `SkillsSummary`      | Render the discovered skill catalog.             |
+| `TaskList` / `ResumeTask` / `AbandonTask` | Persistent task operations.|
+| `MemorySummary` and memory mutation methods | Project memory access.    |
+| `PermissionsSummary` / `ResetPermissions`  | Permission policy access.  |
 
 ## Main Parts
 
@@ -91,14 +96,30 @@ Commands act on the session through a small interface. The TUI is the production
 
 | Command      | Aliases | Usage              | Action                                      |
 | ------------ | ------- | ------------------ | ------------------------------------------- |
-| `help`       | `?`     | `/help`            | List registered commands.                   |
+| `help`       | `?`, `commands` | `/help`     | List registered commands.                   |
 | `clear`      | —       | `/clear`           | Clear the chat transcript.                  |
 | `exit`       | `quit`  | `/exit`            | End the chat session.                       |
 | `model`      | —       | `/model [name]`    | Show or switch the active model.            |
 | `provider`   | —       | `/provider [name]` | Show or switch the active provider.         |
+| `effort`     | —       | `/effort [level]`  | Show or change the effort level.            |
 | `sessions`   | `s`     | `/sessions`        | Open the saved session picker.              |
 | `workspace`  | —       | `/workspace`       | Describe the current repository.            |
 | `index`      | —       | `/index`           | Show the repository index summary.          |
+| `status`     | —       | `/status`          | Summarize project and agent setup.          |
+| `version`    | —       | `/version`         | Show the running Lato version.              |
+| `doctor`     | —       | `/doctor`          | Environment check inside the chat.          |
+| `skills`     | —       | `/skills`          | List skills the agent can load.             |
+| `copy`       | —       | `/copy [target]`   | Copy the last response or transcript.       |
+| `connect`    | —       | `/connect [import]`| Connect a provider interactively.           |
+| `import`     | —       | `/import`          | Import provider config from other tools.    |
+| `memory`     | —       | `/memory [sub]`    | Inspect or manage project memory.           |
+| `task`       | —       | `/task [sub]`      | Show, resume, or abandon tasks.             |
+| `permissions`| —       | `/permissions [reset]` | Show permission policy / reset grants.  |
+
+The version string is shared with `lato --version` through
+`internal/version`; release builds override it at link time:
+
+    go build -ldflags "-X lato/internal/version.Version=1.2.3" .
 
 ## How to Add a Command
 

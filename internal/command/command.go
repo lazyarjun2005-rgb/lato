@@ -54,6 +54,7 @@ type Context interface {
 	TaskList() string
 	ResumeTask(idOrEmpty string) error
 	AbandonTask(id string) error
+	SkillsSummary() string
 	Workspace() workspace.Info
 	Index() *index.Index
 	PermissionsSummary() string

@@ -70,3 +70,32 @@ func TestHelpUnknownCommandsLandInOther(t *testing.T) {
 		t.Errorf("unmapped command not listed under Other:\n%s", out)
 	}
 }
+
+// TestCommandsIsAnAliasOfHelp pins Milestone 1's decision: /commands is
+// not a second implementation — it resolves to the exact same Help
+// instance and dispatches identical output through the normal pipeline.
+func TestCommandsIsAnAliasOfHelp(t *testing.T) {
+	reg := command.NewRegistry()
+	help := NewHelp(reg)
+	reg.Register(help)
+
+	got, ok := reg.Lookup("commands")
+	if !ok {
+		t.Fatal("/commands not registered")
+	}
+	if got != command.Command(help) {
+		t.Fatal("/commands must resolve to the same instance as /help")
+	}
+
+	viaHelp, viaCommands := &fakeContext{}, &fakeContext{}
+	if _, err := command.Dispatch(viaHelp, reg, "/help"); err != nil {
+		t.Fatalf("dispatch /help: %v", err)
+	}
+	if _, err := command.Dispatch(viaCommands, reg, "/commands"); err != nil {
+		t.Fatalf("dispatch /commands: %v", err)
+	}
+	if strings.Join(viaHelp.lines, "\n") != strings.Join(viaCommands.lines, "\n") {
+		t.Errorf("/commands output diverges from /help:\n--- help ---\n%s\n--- commands ---\n%s",
+			strings.Join(viaHelp.lines, "\n"), strings.Join(viaCommands.lines, "\n"))
+	}
+}
