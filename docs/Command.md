@@ -133,6 +133,7 @@ table entry.
 | `fast`       | —       | `/fast`            | Session-only switch to low effort.          |
 | `sessions`   | `s`     | `/sessions`        | Open the saved session picker.              |
 | `rename`     | —       | `/rename <title>`  | Rename the current session persistently.    |
+| `branch`     | —       | `/branch [title]`  | Copy this session into a new one and switch.|
 | `resume`     | —       | `/resume [<id\|title>]` | Resume a session by ID/prefix or exact title; bare opens the picker. |
 | `rewind`     | —       | `/rewind [N]`      | Remove the last N conversation turns (history only). |
 | `workspace`  | —       | `/workspace`       | Describe the current repository.            |

@@ -44,6 +44,7 @@ func newRegistry() *command.Registry {
 	reg.Register(builtin.NewRename())
 	reg.Register(builtin.NewResume())
 	reg.Register(builtin.NewRewind())
+	reg.Register(builtin.NewBranch())
 	reg.Register(builtin.NewWorkspace())
 	reg.Register(builtin.NewIndex())
 	reg.Register(builtin.NewVersion())
@@ -448,6 +449,37 @@ func (m *model) RewindConversation(turns int) (int, error) {
 	m.entries = sessionEntries(m.session)
 	m.refreshTranscript()
 	return turns, nil
+}
+
+// BranchSession snapshots the current conversation into a brand-new
+// independent session and switches to it:
+//
+//  1. refuse while a stream is active;
+//  2. build the branch (new ID, fresh timestamps, its own copy of
+//     Messages) — the original is never written to;
+//  3. persist the branch; on failure nothing switches and the original
+//     is untouched;
+//  4. switch through applySessionSwitch, which loads the branch back
+//     from disk — so the TUI only ever sits on a session that was
+//     verifiably persisted.
+//
+// An empty title selects the derived default ("<current> (branch)").
+func (m *model) BranchSession(title string) (string, error) {
+	if m.waiting {
+		return "", errors.New("cannot branch while Lato is busy")
+	}
+	if m.session == nil {
+		return "", errors.New("no active session")
+	}
+
+	branch := m.session.Branch(title)
+	if err := branch.Save(); err != nil {
+		return "", fmt.Errorf("save branch: %w", err)
+	}
+	if err := m.applySessionSwitch(branch.ID); err != nil {
+		return "", fmt.Errorf("switch to branch: %w", err)
+	}
+	return branch.ID, nil
 }
 
 // ClearConversation resets the current conversation: the visible

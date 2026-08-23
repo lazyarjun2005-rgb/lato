@@ -61,6 +61,8 @@ type fakeContext struct {
 	rewindCalls      int
 	lastRewindTurns  int
 	rewindErr        error
+	branchTitle      string
+	branchErr        error
 
 	workspace workspace.Info
 	index     *index.Index
@@ -215,6 +217,14 @@ func (f *fakeContext) RewindConversation(turns int) (int, error) {
 	f.rewindCalls++
 	f.lastRewindTurns = turns
 	return turns, nil
+}
+
+func (f *fakeContext) BranchSession(title string) (string, error) {
+	if f.branchErr != nil {
+		return "", f.branchErr
+	}
+	f.branchTitle = title
+	return "8f31c2a1-1111-2222-3333-444444444444", nil
 }
 
 func (f *fakeContext) Workspace() workspace.Info { return f.workspace }

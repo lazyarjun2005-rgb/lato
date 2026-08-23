@@ -42,6 +42,12 @@ plus its assistant response when one exists, so an unanswered final
 request is removed by itself. It is a conversation-history operation
 only: files on disk, memory, tasks, and configuration are untouched.
 
+`/branch [title]` snapshots the current session into a brand-new
+independent one (new ID, fresh timestamps, its own message copy) and
+switches to it; the original is never modified. The default branch
+title is the current title — or a preview of the first user message —
+suffixed with " (branch)".
+
 ## Storage Location
 
 Sessions are stored under the current working directory:

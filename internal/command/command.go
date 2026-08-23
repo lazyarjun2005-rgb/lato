@@ -97,6 +97,14 @@ type Context interface {
 	// leave memory and disk untouched when persistence fails. The
 	// returned count is the number of turns actually removed.
 	RewindConversation(turns int) (int, error)
+
+	// BranchSession creates an independent new session from the
+	// current conversation snapshot and switches to it. An empty title
+	// selects the derived default ("<current> (branch)"). The original
+	// session is never modified; the switch happens only after the
+	// branch has been persisted successfully. The returned value is
+	// the new session's ID.
+	BranchSession(title string) (string, error)
 }
 
 // Command is a single slash command. Implementations are independent,

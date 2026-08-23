@@ -81,6 +81,48 @@ func (s *Session) Rewind(n int) error {
 	return nil
 }
 
+// maxBranchPreview caps the derived base title of an untitled branch.
+const maxBranchPreview = 40
+
+// DefaultBranchTitle derives the branch's title from this session: the
+// current title when one is set, otherwise a preview of the first user
+// message, otherwise "(untitled)" — always suffixed with " (branch)".
+func (s *Session) DefaultBranchTitle() string {
+	base := strings.TrimSpace(s.Title)
+	if base == "" {
+		for _, msg := range s.Messages {
+			if msg.Role != "user" || strings.TrimSpace(msg.Content) == "" {
+				continue
+			}
+			base = strings.Join(strings.Fields(msg.Content), " ")
+			if len(base) > maxBranchPreview {
+				base = base[:maxBranchPreview]
+			}
+			break
+		}
+	}
+	if base == "" {
+		base = "(untitled)"
+	}
+	return base + " (branch)"
+}
+
+// Branch builds an independent snapshot session from s: a brand-new ID,
+// fresh timestamps, its own copy of the Messages slice, and the given
+// title ("" selects DefaultBranchTitle). The original is never touched:
+// no field of s changes, and nothing is persisted here — saving the
+// returned session is the caller's decision.
+func (s *Session) Branch(title string) *Session {
+	b := New()
+	if t := strings.TrimSpace(title); t != "" {
+		b.Title = t
+	} else {
+		b.Title = s.DefaultBranchTitle()
+	}
+	b.Messages = append([]Message(nil), s.Messages...)
+	return b
+}
+
 // Markdown renders the persisted conversation as a deterministic
 // Markdown document: a fixed header, the optional title line, then one
 // section per message in conversation order. Only user and assistant
