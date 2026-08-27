@@ -1,0 +1,37 @@
+{
+  "name": "lato-cli",
+  "version": "1.0.1",
+  "description": "Lato — AI coding agent CLI.",
+  "license": "MIT",
+  "homepage": "https://github.com/lazyarjun2005-rgb/lato",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazyarjun2005-rgb/lato.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lazyarjun2005-rgb/lato/issues"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "coding-agent",
+    "terminal",
+    "lato"
+  ],
+  "bin": {
+    "lato": "bin/lato"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "commonjs"
+}
