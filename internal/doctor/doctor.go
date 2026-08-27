@@ -35,11 +35,7 @@ func Report(w io.Writer, ws workspace.Info) {
 
 	exe := ""
 	if raw, err := os.Executable(); err == nil {
-		if real, err := filepath.EvalSymlinks(raw); err == nil {
-			exe = real
-		} else {
-			exe = raw
-		}
+		exe = raw
 	}
 	fmt.Fprintf(w, "  Executable   %s\n", orUnknown(exe))
 	if exe != "" {
