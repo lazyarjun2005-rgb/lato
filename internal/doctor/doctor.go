@@ -33,9 +33,11 @@ func Report(w io.Writer, ws workspace.Info) {
 	fmt.Fprintln(w, "Lato environment check")
 	fmt.Fprintln(w)
 
-	exe := ""
-	if raw, err := os.Executable(); err == nil {
-		exe = raw
+	exe := os.Getenv("LATO_LAUNCHER_PATH")
+	if exe == "" {
+		if raw, err := os.Executable(); err == nil {
+			exe = raw
+		}
 	}
 	fmt.Fprintf(w, "  Executable   %s\n", orUnknown(exe))
 	if exe != "" {

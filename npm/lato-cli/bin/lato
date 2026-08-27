@@ -20,7 +20,18 @@ if (!fs.existsSync(nativeBinary)) {
 }
 
 const result = spawnSync(nativeBinary, process.argv.slice(2), {
-  stdio: 'inherit'
+  stdio: 'inherit',
+  env: {
+    ...process.env,
+    LATO_LAUNCHER_PATH:
+      process.env.LATO_LAUNCHER_PATH ||
+      path.join(
+        process.env.HOME || '',
+        '.local',
+        'bin',
+        'lato'
+      )
+  }
 });
 
 if (result.error) {
