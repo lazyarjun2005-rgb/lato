@@ -1,0 +1,31 @@
+#!/usr/bin/env node
+
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const binName =
+  process.platform === 'win32'
+    ? 'lato-native.exe'
+    : 'lato-native';
+
+const nativeBinary = path.join(__dirname, binName);
+
+if (!fs.existsSync(nativeBinary)) {
+  console.error('Lato native binary is not installed yet.');
+  console.error('Please reinstall lato-cli.');
+  process.exit(1);
+}
+
+const result = spawnSync(nativeBinary, process.argv.slice(2), {
+  stdio: 'inherit'
+});
+
+if (result.error) {
+  console.error(`Failed to start Lato: ${result.error.message}`);
+  process.exit(1);
+}
+
+process.exit(result.status ?? 1);

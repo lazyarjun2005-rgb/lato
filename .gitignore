@@ -25,3 +25,6 @@ Thumbs.db
 
 # Claude
 .claude/
+# npm CLI launcher must be included in the npm package
+!npm/lato-cli/bin/
+!npm/lato-cli/bin/lato
