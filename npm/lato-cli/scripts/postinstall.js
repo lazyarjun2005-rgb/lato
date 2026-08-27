@@ -6,7 +6,7 @@ const os = require('os');
 const https = require('https');
 const { execFileSync } = require('child_process');
 
-const VERSION = 'v1.0.2';
+const VERSION = 'v1.0.3';
 const REPO = 'lazyarjun2005-rgb/lato';
 
 function platformName() {
