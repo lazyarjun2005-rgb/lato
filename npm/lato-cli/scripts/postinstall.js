@@ -101,7 +101,7 @@ async function main() {
   const binDir = path.join(__dirname, '..', 'bin');
   const destination = path.join(
     binDir,
-    platform === 'windows' ? 'lato.exe' : 'lato-native'
+    platform === 'windows' ? 'lato-native.exe' : 'lato-native'
   );
 
   fs.mkdirSync(binDir, { recursive: true });
