@@ -28,3 +28,6 @@ Thumbs.db
 # npm CLI launcher must be included in the npm package
 !npm/lato-cli/bin/
 !npm/lato-cli/bin/lato
+
+# Lato Free credential (generated at build time, not committed)
+internal/providers/latofree_credential.go

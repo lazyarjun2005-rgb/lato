@@ -106,6 +106,14 @@ var Registry = []ProviderInfo{
 		Endpoint:    "http://localhost:8787/v1",
 		APIKeyEnv:   "OMNIROUTE_KEY",
 	},
+	{
+		Name:        "Lato Free",
+		ID:          "lato-free",
+		Class:       ClassOpenAICompatible,
+		Description: "Built-in free models via OpenRouter. No API key required.",
+		Endpoint:    "https://openrouter.ai/api/v1",
+		APIKeyEnv:   "LATO_FREE_OPENROUTER_API_KEY",
+	},
 }
 
 // ByID looks up a provider by its ID (e.g. "openrouter"). ok is false if

@@ -18,6 +18,7 @@ func TestRegistryEntries(t *testing.T) {
 		{"openrouter", ClassOpenAICompatible, "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"},
 		{"9router", ClassOpenAICompatible, "http://localhost:20128/v1", "NINEROUTER_KEY"},
 		{"omniroute", ClassOpenAICompatible, "http://localhost:8787/v1", "OMNIROUTE_KEY"},
+		{"lato-free", ClassOpenAICompatible, "https://openrouter.ai/api/v1", "LATO_FREE_OPENROUTER_API_KEY"},
 	}
 	for _, c := range cases {
 		p, ok := ByID(c.id)

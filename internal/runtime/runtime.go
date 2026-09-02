@@ -807,6 +807,11 @@ func (r *Runtime) newProvider(cfg *config.Config, level effort.Level) (providers
 		}
 	}
 
+	// For Lato Free, use the built-in credential if no API key is provided
+	if id == "lato-free" && apiKey == "" {
+		apiKey = providers.GetLatoFreeBuiltinCredential()
+	}
+
 	// Fail before any HTTP call when the selected provider needs a
 	// credential that neither the connection store nor the environment
 	// provides. A saved connection always satisfies this check: /connect
@@ -829,6 +834,12 @@ func (r *Runtime) newProvider(cfg *config.Config, level effort.Level) (providers
 		applyProviderEffort(p, id, level)
 		return p, nil
 	case providers.ClassOpenAICompatible:
+		// Special handling for Lato Free provider
+		if id == "lato-free" {
+			p := providers.NewLatoFreeProvider(cfg.Model.Name)
+			applyProviderEffort(p, id, level)
+			return p, nil
+		}
 		p := providers.NewOpenAICompatible(endpoint, cfg.Model.Name, apiKey, nil)
 		applyProviderEffort(p, id, level)
 		return p, nil
