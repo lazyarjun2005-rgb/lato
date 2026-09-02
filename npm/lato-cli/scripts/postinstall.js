@@ -6,7 +6,10 @@ const os = require('os');
 const https = require('https');
 const { execFileSync } = require('child_process');
 
-const VERSION = 'v1.0.3';
+// Read version from package.json
+const packageJsonPath = path.join(__dirname, '..', 'package.json');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+const VERSION = 'v' + packageJson.version;
 const REPO = 'lazyarjun2005-rgb/lato';
 
 function platformName() {
