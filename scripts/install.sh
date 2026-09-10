@@ -1,69 +1,146 @@
-#!/usr/bin/env sh
-# install.sh — user-local global installation of Lato (Linux/macOS).
+#!/bin/sh
+# install.sh — prebuilt binary installer for Lato (Linux/macOS).
 #
-# Installs the `lato` executable so it can be started from any terminal
-# and any project directory with plain `lato` — no absolute paths.
+# Downloads the official native Lato binary for this platform from the
+# pinned GitHub release, verifies its SHA-256 checksum, and installs it
+# to ~/.local/bin/lato. No Go toolchain, no compilation, no sudo.
 #
-# Default behavior mirrors standard Go tooling: `go install .` places
-# the binary in $GOBIN, or $GOPATH/bin, or ~/go/bin. Set PREFIX to
-# target another user-local directory instead (no sudo required):
+# Usage:
+#   curl -fsSL <installer URL> | sh
+#   sh scripts/install.sh
 #
-#   ./scripts/install.sh                    # go install . → ~/go/bin/lato
-#   PREFIX="$HOME/.local/bin" ./scripts/install.sh
-#
-# The script is idempotent: re-running it simply refreshes the binary.
-# It never uses sudo and never edits your shell configuration; if PATH
-# needs updating it prints the exact line for you to add yourself.
+# Override the install location with LATO_INSTALL_DIR.
+# The script never executes the downloaded binary during installation
+# and never edits your shell configuration files.
 
 set -eu
 
-if ! command -v go >/dev/null 2>&1; then
-    echo "error: Go is not installed or not on PATH." >&2
-    echo "Install Go from https://go.dev/dl/ and re-run this script." >&2
+VERSION="v1.0.9"
+REPO="lazyarjun2005-rgb/lato"
+BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
+CHECKSUMS_URL="${BASE_URL}/checksums.txt"
+
+INSTALL_DIR="${LATO_INSTALL_DIR:-$HOME/.local/bin}"
+
+err() {
+    echo "error: $*" >&2
     exit 1
+}
+
+log() {
+    echo "$@"
+}
+
+# --- Platform detection -------------------------------------------------
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "$OS" in
+    Linux)  PLATFORM="linux" ;;
+    Darwin) PLATFORM="darwin" ;;
+    *) err "unsupported operating system: ${OS}. Use npm or a manual download from https://github.com/${REPO}/releases" ;;
+esac
+
+case "$ARCH" in
+    x86_64|amd64)    ARCH_NAME="amd64" ;;
+    aarch64|arm64)   ARCH_NAME="arm64" ;;
+    *) err "unsupported architecture: ${ARCH}" ;;
+esac
+
+ASSET="lato-${PLATFORM}-${ARCH_NAME}"
+ASSET_URL="${BASE_URL}/${ASSET}"
+
+log "Installing Lato ${VERSION} (${PLATFORM}-${ARCH_NAME})..."
+
+# --- Check for an existing Lato installation ---------------------------
+
+TARGET="${INSTALL_DIR}/lato"
+
+if [ -e "$TARGET" ] && [ ! -x "$TARGET" ]; then
+    err "${TARGET} exists but is not executable; remove it and re-run the installer"
 fi
 
-repo="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-cd "$repo"
-
-if [ -n "${PREFIX:-}" ]; then
-    # User-chosen location: build directly into PREFIX.
-    mkdir -p "$PREFIX"
-    echo "Building lato into $PREFIX ..."
-    go build -o "$PREFIX/lato" .
-    bin_dir="$(CDPATH= cd -- "$PREFIX" && pwd)"
-else
-    # Standard Go behavior: go install resolves GOBIN/GOPATH itself.
-    echo "Installing lato via go install . ..."
-    go install .
-    bin_dir="$(go env GOBIN)"
-    if [ -z "$bin_dir" ]; then
-        gopath="$(go env GOPATH | cut -d':' -f1)"
-        bin_dir="$gopath/bin"
-    fi
+if [ -e "$TARGET" ]; then
+    log "Replacing existing Lato installation at ${TARGET}"
 fi
 
-echo "Installed: $bin_dir/lato"
+# --- Download ------------------------------------------------------------
+
+TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t lato-install)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+log "Downloading ${ASSET_URL}"
+
+if ! curl -fsSL --retry 3 -o "$TMP_DIR/$ASSET" "$ASSET_URL"; then
+    err "could not download ${ASSET_URL}
+
+The release may not exist for this platform. Check:
+  https://github.com/${REPO}/releases/tag/${VERSION}"
+fi
+
+# --- Checksum verification ----------------------------------------------
+
+log "Verifying SHA-256 checksum..."
+
+if ! curl -fsSL --retry 3 -o "$TMP_DIR/checksums.txt" "$CHECKSUMS_URL"; then
+    err "could not download ${CHECKSUMS_URL}; cannot verify the binary — aborting"
+fi
+
+EXPECTED="$(grep " ${ASSET}\$" "$TMP_DIR/checksums.txt" | awk '{print $1}')"
+
+if [ -z "$EXPECTED" ]; then
+    err "no checksum found for ${ASSET} in checksums.txt"
+fi
+
+ACTUAL="$(sha256sum "$TMP_DIR/$ASSET" 2>/dev/null | awk '{print $1}')"
+
+if [ -z "$ACTUAL" ]; then
+    # macOS ships shasum instead of sha256sum
+    ACTUAL="$(shasum -a 256 "$TMP_DIR/$ASSET" 2>/dev/null | awk '{print $1}')"
+fi
+
+if [ -z "$ACTUAL" ]; then
+    err "no SHA-256 tool available (need sha256sum or shasum); cannot verify the binary"
+fi
+
+if [ "$ACTUAL" != "$EXPECTED" ]; then
+    err "checksum mismatch for ${ASSET}
+
+  expected: ${EXPECTED}
+  actual:   ${ACTUAL}
+
+The download may be corrupted or tampered with. Aborting."
+fi
+
+log "Checksum OK"
+
+# --- Install -------------------------------------------------------------
+
+mkdir -p "$INSTALL_DIR"
+
+mv "$TMP_DIR/$ASSET" "$TARGET"
+chmod 755 "$TARGET"
+
+log ""
+log "Installed: ${TARGET}"
+
+# --- PATH check ----------------------------------------------------------
 
 case ":$PATH:" in
-    *":$bin_dir:"*) ;;
+    *":$INSTALL_DIR:"*) ;;
     *)
-        echo ""
-        echo "NOTE: $bin_dir is not on your PATH."
-        echo "To make \`lato\` available in every terminal, add this line to"
-        echo "your shell configuration (~/.bashrc, ~/.zshrc, or equivalent):"
-        echo ""
-        echo "  export PATH=\"\$PATH:$bin_dir\""
-        echo ""
-        echo "Then restart your shell (or run: source ~/.bashrc)."
-        echo "This script deliberately does not edit your shell files."
+        log ""
+        log "NOTE: ${INSTALL_DIR} is not on your PATH."
+        log "To make \`lato\` available in every terminal, add this line to"
+        log "your shell configuration (~/.bashrc, ~/.zshrc, or equivalent):"
+        log ""
+        log "  export PATH=\"\$PATH:${INSTALL_DIR}\""
+        log ""
+        log "Then restart your shell (or run: source ~/.bashrc)."
         ;;
 esac
 
-echo ""
-echo "Verify with:"
-echo "  which lato     # should print $bin_dir/lato"
-echo "  lato doctor    # environment check"
-echo ""
-echo "Then, from any project directory:"
-echo "  cd ~/some-project && lato"
+log ""
+log "Verify with: lato --version   (should print: lato ${VERSION})"
+log "Then start it from any project directory: cd ~/some-project && lato"

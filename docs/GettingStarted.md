@@ -4,11 +4,11 @@ This page explains how to install Lato, configure it, and run your first agent s
 
 ## Requirements
 
-Before you start, make sure that you have:
+Before you start, make sure you have:
 
-- Go 1.22 or later, if you build from source
 - [Ollama](https://ollama.com) installed and running using `ollama serve`
 - At least one local model installed
+- Go 1.26 or later, only if you build from source
 
 Example:
 
@@ -19,47 +19,53 @@ ollama serve
 
 ## Install
 
-### Global install (recommended)
+Pick one method. All of them install the same official prebuilt release
+binary.
 
-With Go installed, clone the repository and run the installer:
+### Prebuilt installer (recommended, no Go required)
 
-```bash
-git clone https://github.com/fabledruns/forcefield
-cd forcefield
-./scripts/install.sh
-```
-
-This runs `go install .`, placing the binary in `$GOBIN` (or `$GOPATH/bin`,
-or `~/go/bin`). To install into `~/.local/bin` instead:
+Linux/macOS:
 
 ```bash
-PREFIX="$HOME/.local/bin" ./scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.sh | sh
 ```
 
-If the target directory is not on your `PATH`, the script prints the exact
-line to add to your shell configuration — it never edits your shell files.
-After that, `lato` starts from any directory:
-
-```bash
-cd ~/some-project
-lato
-```
-
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
-.\scripts\install.ps1
+irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.ps1 | iex
 ```
 
-Verify the installation at any time with `lato doctor`.
+The installer downloads the binary for your platform from the
+[v1.0.9 release](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.0.9),
+verifies its SHA-256 checksum, and installs it per-user:
+
+- Linux/macOS: `~/.local/bin/lato`
+- Windows: `%LOCALAPPDATA%\Programs\Lato\lato.exe` (PATH updated automatically)
+
+If `~/.local/bin` is not on your PATH, the installer prints the exact
+line to add — it never edits your shell files.
+
+Verify:
+
+```bash
+lato --version   # lato v1.0.9
+lato doctor
+```
+
+### npm
+
+```bash
+npm install -g lato-cli@1.0.9
+```
 
 ### Build from source
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/fabledruns/forcefield
-cd forcefield
+git clone https://github.com/lazyarjun2005-rgb/lato
+cd lato
 ```
 
 2. Build the binary:
@@ -80,13 +86,6 @@ On Windows PowerShell:
 go build -o lato.exe .
 .\lato.exe
 ```
-
-### Use a release binary
-
-1. Open the GitHub Releases page for Lato.
-2. Download the binary for your operating system.
-3. Place the binary on your `PATH` if you want the `lato` command available globally.
-4. Run `lato`.
 
 ## First Run
 

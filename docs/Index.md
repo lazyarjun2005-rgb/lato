@@ -34,34 +34,44 @@ You can find the index of the contents in this file.
 ## Installation
 
 To install Lato globally — so plain `lato` works from any terminal and any
-project directory — use the installer script:
+project directory — use one of these methods. All of them install the same
+official prebuilt release binary; none require Go, npm, or administrator
+rights.
+
+Prebuilt installer (Linux/macOS):
 
 ```bash
-git clone https://github.com/fabledruns/forcefield
-cd forcefield
-./scripts/install.sh          # Linux/macOS: go install . → ~/go/bin/lato
+curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.sh | sh
 ```
+
+Prebuilt installer (Windows PowerShell):
 
 ```powershell
-git clone https://github.com/fabledruns/forcefield
-cd forcefield
-.\scripts\install.ps1         # Windows PowerShell equivalent
+irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.ps1 | iex
 ```
 
-Both scripts are user-local and idempotent: they never require sudo and
-never edit shell configuration; if `PATH` needs updating, the exact line to
-add is printed. Verify with `lato doctor`.
+npm:
+
+```bash
+npm install -g lato-cli@1.0.9
+```
+
+The installers download the binary for your platform from the
+[v1.0.9 release](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.0.9),
+verify its SHA-256 checksum, and place it on your PATH (Linux/macOS:
+`~/.local/bin/lato`, Windows: `%LOCALAPPDATA%\Programs\Lato\lato.exe`).
+Verify with `lato doctor`.
 
 For a full first-run walkthrough, see [Getting Started](GettingStarted.md).
 
 ### Make Your Own Binary
 
-Clone the repository using `git clone https://github.com/fabledruns/forcefield` in a new folder, and run `go build -o lato .`, then run using `./lato`.
+Clone the repository using `git clone https://github.com/lazyarjun2005-rgb/lato` in a new folder, and run `go build -o lato .`, then run using `./lato`.
 Alternatively run `go install .` to place the binary in your Go bin directory.
 
 ### Releases Binary
 
-Download the latest binary from the GitHub Releases page for your operating system.
+Download the latest binary from the [GitHub Releases page](https://github.com/lazyarjun2005-rgb/lato/releases) for your operating system.
 
 ## Architecture
 

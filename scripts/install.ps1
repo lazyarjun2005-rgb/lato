@@ -1,71 +1,124 @@
-# install.ps1 — user-local global installation of Lato (Windows).
+# install.ps1 — prebuilt binary installer for Lato (Windows).
 #
-# Installs the `lato` executable so it can be started from any terminal
-# and any project directory with plain `lato` - no absolute paths.
+# Downloads the official native lato.exe for this architecture from the
+# pinned GitHub release, verifies its SHA-256 checksum, and installs it
+# to %LOCALAPPDATA%\Programs\Lato\lato.exe (per-user, no administrator
+# rights). The user PATH is updated only if the directory is missing.
 #
-# The binary is built with Go into $GOBIN, or $GOPATH\bin, or
-# $HOME\go\bin (the standard `go install` location). Set PREFIX to
-# target another user-local directory instead:
-#
+# Usage:
+#   irm <installer URL> | iex
 #   .\scripts\install.ps1
-#   $env:LATO_PREFIX = "$HOME\.local\bin"; .\scripts\install.ps1
 #
-# The script is idempotent: re-running it simply refreshes the binary.
-# It never requires administrator rights and never edits your shell
-# configuration; if PATH needs updating it prints the exact command.
+# The script never executes the downloaded binary during installation.
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
-if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
-    Write-Error "Go is not installed or not on PATH. Install Go from https://go.dev/dl/ and re-run."
-}
+$Version = 'v1.0.9'
+$Repo = 'lazyarjun2005-rgb/lato'
+$BaseUrl = "https://github.com/$Repo/releases/download/$Version"
+$ChecksumsUrl = "$BaseUrl/checksums.txt"
+$InstallDir = Join-Path $env:LOCALAPPDATA 'Programs\Lato'
+$Target = Join-Path $InstallDir 'lato.exe'
 
-$repo = Split-Path -Parent $PSScriptRoot
-Set-Location $repo
+# --- Architecture detection ----------------------------------------------
 
-if ($env:LATO_PREFIX) {
-    $binDir = $env:LATO_PREFIX
-    New-Item -ItemType Directory -Force -Path $binDir | Out-Null
-    Write-Host "Building lato into $binDir ..."
-    go build -o (Join-Path $binDir "lato.exe") .
-} else {
-    Write-Host "Installing lato via go install . ..."
-    go install .
-    $goBin = go env GOBIN
-    if ($goBin) {
-        $binDir = $goBin
-    } else {
-        $gopath = (go env GOPATH).Split(";")[0]
-        $binDir = Join-Path $gopath "bin"
+# A 32-bit PowerShell process on 64-bit Windows reports its native arch in
+# PROCESSOR_ARCHITEW6432; prefer that when present.
+$procArch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+
+$Arch = switch ($procArch) {
+    'AMD64' { 'amd64' }
+    'ARM64' { 'arm64' }
+    default {
+        Write-Error "unsupported architecture: $procArch. Download manually from https://github.com/$Repo/releases/tag/$Version"
     }
 }
 
-Write-Host "Installed: $(Join-Path $binDir 'lato.exe')"
+$Asset = "lato-windows-$Arch.exe"
+$AssetUrl = "$BaseUrl/$Asset"
 
-$pathEntries = $env:PATH -split ";"
-$onPath = $false
-foreach ($entry in $pathEntries) {
-    if ([string]::Equals([System.IO.Path]::GetFullPath($entry), [System.IO.Path]::GetFullPath($binDir), [System.StringComparison]::OrdinalIgnoreCase)) {
-        $onPath = $true
-        break
+Write-Host "Installing Lato $Version (windows-$Arch)..."
+
+if (Test-Path $Target) {
+    Write-Host "Replacing existing Lato installation at $Target"
+}
+
+# --- Download --------------------------------------------------------------
+
+$tempFile = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+$checksumsFile = $null
+
+try {
+    Write-Host "Downloading $AssetUrl"
+    Invoke-WebRequest -Uri $AssetUrl -OutFile $tempFile -UseBasicParsing
+
+    # --- Checksum verification ------------------------------------------
+
+    Write-Host 'Verifying SHA-256 checksum...'
+
+    $checksumsFile = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+    Invoke-WebRequest -Uri $ChecksumsUrl -OutFile $checksumsFile -UseBasicParsing
+
+    $expected = $null
+    foreach ($line in Get-Content $checksumsFile) {
+        $parts = $line -split '\s+', 2
+        if ($parts.Count -eq 2 -and $parts[1].Trim() -eq $Asset) {
+            $expected = $parts[0].Trim().ToLowerInvariant()
+            break
+        }
     }
+    if (-not $expected) {
+        Write-Error "no checksum found for $Asset in checksums.txt"
+    }
+
+    $actual = (Get-FileHash -Path $tempFile -Algorithm SHA256).Hash.ToLowerInvariant()
+
+    if ($actual -ne $expected) {
+        Write-Error "checksum mismatch for $Asset`nExpected: $expected`nActual:   $actual`nThe download may be corrupted or tampered with. Aborting."
+    }
+
+    Write-Host 'Checksum OK'
+}
+finally {
+    if ($checksumsFile -and (Test-Path $checksumsFile)) { Remove-Item $checksumsFile -Force -ErrorAction SilentlyContinue }
 }
 
-if (-not $onPath) {
-    Write-Host ""
-    Write-Host "NOTE: $binDir is not on your PATH."
-    Write-Host "To make 'lato' available in every terminal, run:"
-    Write-Host ""
-    Write-Host ("  setx PATH `"%PATH%;{0}`"" -f $binDir)
-    Write-Host ""
-    Write-Host "(then open a new terminal), or add the directory through"
-    Write-Host "Settings > System > About > Advanced system settings > Environment Variables."
-    Write-Host "This script deliberately does not change your PATH for you."
+# --- Install ---------------------------------------------------------------
+
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+
+try {
+    if (Test-Path $Target) {
+        Remove-Item $Target -Force
+    }
+    Move-Item -Path $tempFile -Destination $Target
+}
+catch {
+    if (Test-Path $tempFile) { Remove-Item $tempFile -Force -ErrorAction SilentlyContinue }
+    throw
 }
 
 Write-Host ""
-Write-Host "Verify with:"
-Write-Host "  lato doctor"
+Write-Host "Installed: $Target"
+
+# --- PATH --------------------------------------------------------------------
+
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+
+if ($userPath -split ';' -notcontains $InstallDir) {
+    [Environment]::SetEnvironmentVariable('Path', "$userPath;$InstallDir", 'User')
+    Write-Host "Added $InstallDir to your user PATH."
+    Write-Host "Open a new terminal for the change to take effect."
+}
+else {
+    Write-Host "$InstallDir is already on your user PATH."
+}
+
+# Also make it available in this session, if possible.
+if ($env:PATH -split ';' -notcontains $InstallDir) {
+    $env:PATH = "$env:PATH;$InstallDir"
+}
+
 Write-Host ""
-Write-Host "Then, from any project directory:"
-Write-Host "  cd ~\some-project; lato"
+Write-Host "Verify with: lato --version   (should print: lato $Version)"
+Write-Host "Then start it from any project directory: cd ~\some-project; lato"

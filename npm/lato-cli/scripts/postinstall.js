@@ -2,11 +2,15 @@
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 const https = require('https');
-const { execFileSync } = require('child_process');
 
-const VERSION = 'v1.0.3';
+// The release version is derived from this package's own version so the
+// downloaded native binary always matches the package being installed —
+// there is no hardcoded release tag here.
+const packageJson = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')
+);
+const VERSION = `v${packageJson.version}`;
 const REPO = 'lazyarjun2005-rgb/lato';
 
 function platformName() {
