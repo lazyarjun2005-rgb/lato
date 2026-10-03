@@ -58,6 +58,14 @@ func classifyCommand(line string) (Class, Decision, string) {
 	program := baseProgram(fields[0])
 	args := fields[1:]
 
+	// Sensitive file targets must never be auto-allowed, even through
+	// routine read-only commands (cat/head/tail/grep) or a cp. This check
+	// runs before the routine allowlist so environment/credential reads
+	// always require explicit approval.
+	if target := sensitiveCommandTarget(program, args); target != "" {
+		return ClassHighRisk, Ask, "command targets a sensitive file: " + target
+	}
+
 	if why, risky := destructiveWords(program, args); risky {
 		return ClassHighRisk, Ask, why
 	}
@@ -294,6 +302,33 @@ func isSafeCommand(program string, args []string) bool {
 		}
 	}
 	return true
+}
+
+// sensitiveCommandTarget returns the first argument that IsSensitivePath
+// flags, or "" when none of the tokens look like a credential target.
+// It inspects every argument token (including values like
+// --config=.aws/credentials) conservatively: any token shaped like a
+// sensitive path forces approval rather than silent Allow. It is not a
+// full shell parser — quoted forms are already unquoted by splitArgs, and
+// tokens inside command substitutions or pipes are handled by the
+// routine shell-feature branch — so anything ambiguous fails toward Ask.
+func sensitiveCommandTarget(program string, args []string) string {
+	for _, a := range args {
+		// Strip a leading "--flag=" so --config=.aws/credentials is
+		// evaluated by its value part.
+		val := a
+		if i := strings.Index(a, "="); i >= 0 && (strings.HasPrefix(a, "-") || strings.Contains(a, "=")) {
+			val = a[i+1:]
+		}
+		if IsSensitivePath(val) {
+			return val
+		}
+		// Also check the token as a whole for flag-style forms.
+		if IsSensitivePath(a) {
+			return a
+		}
+	}
+	return ""
 }
 
 // baseProgram strips a leading path from the program name so /bin/rm

@@ -194,3 +194,28 @@ func TestSearchRepositoryRegistersBothTools(t *testing.T) {
 		t.Errorf("registered tools = %v, want search_repo and read_repo_file", names)
 	}
 }
+
+func TestSearchRepositoryFiltersSensitiveMatches(t *testing.T) {
+	store := &fakeStore{search: func(opts index.Search) (index.SearchResult, error) {
+		return index.SearchResult{
+			Matches: []index.Match{
+				{Path: ".env", Line: 3, Text: "SECRET=xxx", Kind: "content"},
+				{Path: "internal/config/config.go", Line: 10, Text: "loadConfig()", Kind: "content"},
+				{Path: ".aws/credentials", Line: 1, Text: "key", Kind: "content"},
+				{Path: "src/app.go", Kind: "filename"},
+			},
+			Count: 4,
+		}, nil
+	}}
+	tool := NewSearchRepository(store)
+	res, err := tool.Execute(context.Background(), map[string]any{"query": "config"})
+	if err != nil || res.IsError {
+		t.Fatalf("Execute: %v %s", err, res.Content)
+	}
+	if strings.Contains(res.Content, ".env") || strings.Contains(res.Content, ".aws") {
+		t.Errorf("sensitive matches should be removed from results:\n%s", res.Content)
+	}
+	if !strings.Contains(res.Content, "internal/config/config.go") || !strings.Contains(res.Content, "src/app.go") {
+		t.Errorf("normal matches should remain:\n%s", res.Content)
+	}
+}

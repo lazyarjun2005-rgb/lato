@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"lato/internal/index"
+	"lato/internal/permissions"
 	"lato/internal/tools"
 )
 
@@ -112,6 +113,18 @@ func (t *SearchRepository) Execute(_ context.Context, args map[string]any) (tool
 	if err != nil {
 		return tools.Result{IsError: true, Content: fmt.Sprintf("search failed: %v", err)}, nil
 	}
+
+	// Never expose sensitive (credential) content from the index: matches
+	// for those paths are removed before the result reaches the model.
+	filtered := make([]index.Match, 0, len(res.Matches))
+	for _, m := range res.Matches {
+		if permissions.IsSensitivePath(m.Path) {
+			continue
+		}
+		filtered = append(filtered, m)
+	}
+	res.Matches = filtered
+	res.Count = len(filtered)
 
 	if len(res.Matches) == 0 {
 		hint := ""

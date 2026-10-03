@@ -74,3 +74,31 @@ func TestSensitivePathEscalatesToAsk(t *testing.T) {
 		t.Errorf("normal read decision = %v, want Allow", v.Decision)
 	}
 }
+
+func TestReadRepoFileSensitivePathEscalates(t *testing.T) {
+	p := NewPolicy(t.TempDir())
+	a := p.Classify("read_repo_file", map[string]any{"path": ".env"})
+	v := p.Decide(a, "")
+	if v.Decision != Ask || v.Class != ClassHighRisk {
+		t.Errorf("read_repo_file .env = (%v,%v), want Ask/HighRisk", v.Decision, v.Class)
+	}
+	// A normal indexed path stays allowed.
+	a = p.Classify("read_repo_file", map[string]any{"path": "internal/main.go"})
+	if v := p.Decide(a, ""); v.Decision != Allow {
+		t.Errorf("read_repo_file main.go = %v, want Allow", v.Decision)
+	}
+}
+
+func TestSensitiveDirEscalatesForRunCommand(t *testing.T) {
+	p := NewPolicy(t.TempDir())
+	a := p.Classify("run_command", map[string]any{"command": "ls", "dir": ".aws"})
+	v := p.Decide(a, "")
+	if v.Decision != Ask {
+		t.Errorf("run_command dir=.aws decision = %v, want Ask", v.Decision)
+	}
+	// A non-sensitive dir falls back to the command classifier.
+	a = p.Classify("run_command", map[string]any{"command": "ls", "dir": "src"})
+	if v := p.Decide(a, ""); v.Decision != Allow {
+		t.Errorf("run_command dir=src decision = %v, want Allow", v.Decision)
+	}
+}

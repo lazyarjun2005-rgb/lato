@@ -57,6 +57,9 @@ var pathArg = map[string]string{
 	"edit_file": "path", "create_file": "path", "delete_file": "path",
 	"rename_file": "path", "move_file": "path", "format_file": "path",
 	"create_directory": "path", "delete_directory": "path",
+	// read_repo_file reads a workspace file by path, so it is subject to
+	// the same workspace-boundary and sensitive-path check as read_file.
+	"read_repo_file": "path",
 }
 
 // classifyAction inspects one pending tool call. Unknown tools classify
@@ -163,6 +166,12 @@ func classifyRunCommand(b Boundary, args map[string]any) Action {
 		if _, contained := b.Contains(d); !contained {
 			a.dirOutside = true
 			a.inWorkspace = false
+		}
+		// A working directory inside a sensitive region must not let
+		// a routine command escape approval.
+		if IsSensitivePath(d) {
+			a.class = ClassHighRisk
+			a.Reason = "command runs in a sensitive directory: " + RedactSecrets(d)
 		}
 	}
 	return a
