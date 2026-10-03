@@ -124,3 +124,49 @@ func TestManager_DefinitionsAndList(t *testing.T) {
 		t.Fatalf("Definitions() returned %d entries, want 2", len(m.Definitions()))
 	}
 }
+
+// strictEchoTool has a full schema; invalid arguments must be rejected
+// before Execute is reached.
+type strictEchoTool struct {
+	calls int
+}
+
+func (t *strictEchoTool) Name() string        { return "strict_echo" }
+func (t *strictEchoTool) Description() string { return "strict echo" }
+func (t *strictEchoTool) InputSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"text": map[string]any{"type": "string"},
+		},
+		"required": []string{"text"},
+	}
+}
+func (t *strictEchoTool) Execute(_ context.Context, args map[string]any) (Result, error) {
+	t.calls++
+	return Result{Content: "ok"}, nil
+}
+
+func TestManager_ExecuteValidatesArgsBeforeSideEffect(t *testing.T) {
+	tool := &strictEchoTool{}
+	m := newTestManager(t, tool)
+
+	if _, err := m.Execute(context.Background(), "strict_echo", map[string]any{}); err == nil {
+		t.Fatal("missing required should error")
+	}
+	if _, err := m.Execute(context.Background(), "strict_echo", map[string]any{"text": 7}); err == nil {
+		t.Fatal("wrong type should error")
+	}
+	if _, err := m.Execute(context.Background(), "strict_echo", map[string]any{"text": ""}); err == nil {
+		t.Fatal("empty required string should error")
+	}
+	if tool.calls != 0 {
+		t.Fatalf("Execute side effect count = %d, want 0", tool.calls)
+	}
+	if _, err := m.Execute(context.Background(), "strict_echo", map[string]any{"text": "hi"}); err != nil {
+		t.Fatalf("valid call: %v", err)
+	}
+	if tool.calls != 1 {
+		t.Fatalf("Execute side effect count = %d, want 1", tool.calls)
+	}
+}

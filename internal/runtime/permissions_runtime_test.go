@@ -476,3 +476,94 @@ func mustStream(t *testing.T, rt *Runtime, msg string) <-chan Event {
 }
 
 func (a *scriptedAsker) len() int { return len(a.asked) }
+
+// strictTool combines real-style classification (read_file schema) with
+// an execution counter so tests can prove malformed or denied calls
+// never produce side effects.
+type strictTool struct {
+	calls int
+}
+
+func (t *strictTool) Name() string        { return "read_file" }
+func (t *strictTool) Description() string { return "strict read_file" }
+func (t *strictTool) InputSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"path": map[string]any{"type": "string"},
+		},
+		"required": []string{"path"},
+	}
+}
+func (t *strictTool) Execute(_ context.Context, _ map[string]any) (tools.Result, error) {
+	t.calls++
+	return tools.Result{Content: "ok"}, nil
+}
+
+func TestMalformedArgumentsYieldToolErrorWithoutExecution(t *testing.T) {
+	tool := &strictTool{}
+	p := &scriptedProvider{turns: [][]providers.StreamEvent{
+		callTurn("c1", "read_file", map[string]any{"path": float64(123)}), // wrong type
+		{{Text: "ok"}, {Done: true}},
+	}}
+	rt, _ := permRuntime(t, p)
+	if err := rt.manager.Register(tool); err != nil {
+		t.Fatal(err)
+	}
+
+	results, final := runStream(t, rt, p)
+	if tool.calls != 0 {
+		t.Fatalf("tool executed %d times on malformed args, want 0", tool.calls)
+	}
+	if len(results) != 1 || !results[0].IsError {
+		t.Fatalf("expected one errored tool result, got %+v", results)
+	}
+	if final != "ok" {
+		t.Fatalf("final = %q, want ok (model recovers)", final)
+	}
+}
+
+func TestDeniedPermissionDoesNotExecute(t *testing.T) {
+	tool := &strictTool{}
+	p := &scriptedProvider{turns: [][]providers.StreamEvent{
+		callTurn("c1", "read_file", map[string]any{"path": ".env"}), // sensitive → Ask
+		{{Text: "ok"}, {Done: true}},
+	}}
+	rt, _ := permRuntime(t, p)
+	if err := rt.manager.Register(tool); err != nil {
+		t.Fatal(err)
+	}
+	asker := &scriptedAsker{choices: []PermissionChoice{PermissionDeny}}
+	rt.SetAsker(asker)
+
+	results, _ := runStream(t, rt, p)
+	if tool.calls != 0 {
+		t.Fatalf("denied tool executed %d times, want 0", tool.calls)
+	}
+	if len(results) != 1 || !results[0].IsError {
+		t.Fatalf("expected one refusal result, got %+v", results)
+	}
+}
+
+func runStream(t *testing.T, rt *Runtime, p *scriptedProvider) ([]ToolResult, string) {
+	t.Helper()
+	stream, err := rt.StreamChat(context.Background(), []providers.Message{{Role: providers.UserRole, Content: "hi"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var results []ToolResult
+	var final string
+	for e := range stream {
+		switch e.Type {
+		case EventToolFinish:
+			if e.ToolResult != nil {
+				results = append(results, *e.ToolResult)
+			}
+		case EventDone:
+			if e.Response != nil {
+				final = e.Response.Content
+			}
+		}
+	}
+	return results, final
+}

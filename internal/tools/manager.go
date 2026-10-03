@@ -43,6 +43,12 @@ func (m *Manager) Execute(ctx context.Context, name string, args map[string]any)
 		args = map[string]any{}
 	}
 
+	// Validate the tool's declared argument contract before running it,
+	// so a malformed call can never produce a side effect.
+	if err := Validate(args, tool.InputSchema()); err != nil {
+		return Result{}, &ExecutionError{Tool: name, Err: err}
+	}
+
 	result, err := tool.Execute(ctx, args)
 	if err != nil {
 		return Result{}, &ExecutionError{Tool: name, Err: err}
