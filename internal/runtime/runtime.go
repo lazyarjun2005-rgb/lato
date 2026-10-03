@@ -5,6 +5,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -566,6 +567,11 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 	var toolsUsed []string
 	stalls := 0
 
+	// Phase 2B: execution limits.
+	limits := r.limits()
+	toolCalls := 0
+	consecutiveFailures := 0
+
 	for {
 		if turns >= prof.MaxTurns {
 			finishWithStatus(emit, withPausePreview(trk, budgetSummary(turns, toolsUsed)))
@@ -635,7 +641,16 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 			// Permission gate (M13): classify → check → allow/deny/ask.
 			// Every tool call from every provider passes through here.
 			started := time.Now()
-			result, execErr := r.executeTool(ctx, tc, trk)
+			result, execErr, executed := r.executeTool(ctx, tc, trk)
+			if executed {
+				// Phase 2B: track tool executions for budget enforcement.
+				toolCalls++
+				if toolCalls >= limits.MaxToolCalls {
+					finishWithStatus(emit, withPausePreview(trk,
+						fmt.Sprintf("Tool-call budget exhausted (%d calls). Run terminated.", limits.MaxToolCalls)))
+					return
+				}
+			}
 			switch {
 			case execErr != nil && ctx.Err() != nil:
 				// The request itself was cancelled while the tool ran;
@@ -667,6 +682,19 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 				Success:    !result.IsError,
 				Duration:   time.Since(started),
 			}
+
+			// Phase 2B: consecutive failure tracking.
+			if result.IsError {
+				consecutiveFailures++
+				if consecutiveFailures >= limits.MaxConsecutiveFailures {
+					finishWithStatus(emit, withPausePreview(trk,
+						fmt.Sprintf("Consecutive tool failures limit reached (%d). Run terminated.", limits.MaxConsecutiveFailures)))
+					return
+				}
+			} else {
+				consecutiveFailures = 0
+			}
+
 			if !emit(Event{Type: EventToolFinish, ToolResult: toolResult}) {
 				return
 			}
@@ -720,41 +748,129 @@ func (r *Runtime) runModelTurn(ctx context.Context, messages []providers.Message
 		return providers.Response{}, err
 	}
 
-	if !emit(Event{Type: EventThinking}) {
-		return providers.Response{}, context.Canceled
-	}
+	limits := r.limits()
+	maxAttempts := 1 + limits.ProviderRetries
 
-	stream, err := provider.StreamChat(ctx, messages, definitions)
-	if err != nil {
-		return providers.Response{}, fmt.Errorf("model call failed: %w", err)
-	}
-
-	var response providers.Response
-	for event := range stream {
-		if event.Err != nil {
-			return providers.Response{}, fmt.Errorf("model stream failed: %w", event.Err)
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if !emit(Event{Type: EventThinking}) {
+			return providers.Response{}, context.Canceled
 		}
 
-		if event.Thinking != "" {
-			if !emit(Event{Type: EventThinking, Thinking: event.Thinking}) {
-				return providers.Response{}, context.Canceled
+		stream, err := provider.StreamChat(ctx, messages, definitions)
+		if err != nil {
+			// Initial connection failure — retry if transient and attempts remain.
+			if isTransientProviderErr(err) && attempt < maxAttempts-1 {
+				delay := retryDelay(attempt)
+				select {
+				case <-time.After(delay):
+				case <-ctx.Done():
+					return providers.Response{}, ctx.Err()
+				}
+				continue
+			}
+			return providers.Response{}, fmt.Errorf("model call failed: %w", err)
+		}
+
+		var response providers.Response
+		contentEmitted := false
+		for event := range stream {
+			if event.Err != nil {
+				// Stream error — retry if transient, no content emitted, and attempts remain.
+				if isTransientProviderErr(event.Err) && !contentEmitted && attempt < maxAttempts-1 {
+					delay := retryDelay(attempt)
+					select {
+					case <-time.After(delay):
+					case <-ctx.Done():
+						return providers.Response{}, ctx.Err()
+					}
+					break // break inner loop to retry outer loop
+				}
+				return providers.Response{}, fmt.Errorf("model stream failed: %w", event.Err)
+			}
+
+			if event.Thinking != "" {
+				if !emit(Event{Type: EventThinking, Thinking: event.Thinking}) {
+					return providers.Response{}, context.Canceled
+				}
+			}
+
+			if event.Text != "" {
+				contentEmitted = true
+				response.Content += event.Text
+				if !emit(Event{Type: EventText, Text: event.Text}) {
+					return providers.Response{}, context.Canceled
+				}
+			}
+
+			if len(event.ToolCalls) > 0 {
+				contentEmitted = true
+				response.ToolCalls = append(response.ToolCalls, event.ToolCalls...)
 			}
 		}
 
-		if event.Text != "" {
-			response.Content += event.Text
-			if !emit(Event{Type: EventText, Text: event.Text}) {
-				return providers.Response{}, context.Canceled
-			}
+		if err := ctx.Err(); err != nil {
+			return providers.Response{}, err
 		}
-
-		response.ToolCalls = append(response.ToolCalls, event.ToolCalls...)
+		return response, nil
 	}
 
-	if err := ctx.Err(); err != nil {
-		return providers.Response{}, err
+	return providers.Response{}, fmt.Errorf("provider retries exhausted after %d attempts", maxAttempts)
+}
+
+// isTransientProviderErr reports whether the error is likely transient
+// and worth retrying. It classifies common network/HTTP errors and
+// specific HTTP status codes as transient. Authentication and client
+// errors (4xx except 429) are considered permanent.
+func isTransientProviderErr(err error) bool {
+	if err == nil {
+		return false
 	}
-	return response, nil
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false // cancellation is not transient
+	}
+	s := err.Error()
+	lower := strings.ToLower(s)
+	// Network-level transient errors.
+	if strings.Contains(lower, "timeout") ||
+		strings.Contains(lower, "connection refused") ||
+		strings.Contains(lower, "connection reset") ||
+		strings.Contains(lower, "broken pipe") ||
+		strings.Contains(lower, "no such host") ||
+		strings.Contains(lower, "dial tcp") ||
+		strings.Contains(lower, "i/o timeout") ||
+		strings.Contains(lower, "eof") {
+		return true
+	}
+	// HTTP status codes.
+	if strings.Contains(lower, "status 429") || // Too Many Requests
+		strings.Contains(lower, "status 500") || // Internal Server Error
+		strings.Contains(lower, "status 502") || // Bad Gateway
+		strings.Contains(lower, "status 503") || // Service Unavailable
+		strings.Contains(lower, "status 504") { // Gateway Timeout
+		return true
+	}
+	return false
+}
+
+// retryDelay returns the delay for a given attempt number using
+// exponential backoff with jitter. Base delay is 500ms, capped at 10s.
+func retryDelay(attempt int) time.Duration {
+	base := time.Duration(500) * time.Millisecond
+	maxDelay := 10 * time.Second
+	delay := base * time.Duration(1<<attempt)
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	// Add jitter: ±25%
+	jitter := time.Duration(float64(delay) * 0.25 * (2.0*float64(time.Now().UnixNano()%1000)/1000.0 - 1.0))
+	delay += jitter
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	if delay < 0 {
+		delay = 0
+	}
+	return delay
 }
 
 func Run(messages []providers.Message) (providers.Response, error) {

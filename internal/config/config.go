@@ -40,10 +40,52 @@ type Agent struct {
 	SystemPrompt string `yaml:"system_prompt"`
 }
 
+// Limits bounds agent execution so a runaway request terminates. Every
+// value that is <= 0 is treated as "unset" and resolved to the safe
+// default below by (*Config).Limits(), never to "no limit".
+type Limits struct {
+	// MaxToolCalls caps the number of tool calls that may actually run
+	// (the budget is enforced before each call's manager.Execute).
+	MaxToolCalls int `yaml:"max_tool_calls,omitempty"`
+	// MaxConsecutiveFailures stops the run after this many tool results
+	// in a row report an error/denial/validation failure.
+	MaxConsecutiveFailures int `yaml:"max_consecutive_failures,omitempty"`
+	// ProviderRetries is the number of extra provider attempts after the
+	// first one for transient, pre-content failures.
+	ProviderRetries int `yaml:"provider_retries,omitempty"`
+}
+
+const (
+	defaultMaxToolCalls           = 100
+	defaultMaxConsecutiveFailures = 5
+	defaultProviderRetries        = 3
+)
+
+// EffectiveLimits returns the active execution limits, applying safe
+// defaults to unset or non-positive values so a hand-edited or missing
+// setting can never silently mean "unlimited".
+func (c *Config) EffectiveLimits() Limits {
+	l := c.Limits
+	if l.MaxToolCalls <= 0 {
+		l.MaxToolCalls = defaultMaxToolCalls
+	}
+	if l.MaxConsecutiveFailures <= 0 {
+		l.MaxConsecutiveFailures = defaultMaxConsecutiveFailures
+	}
+	if l.ProviderRetries < 0 {
+		l.ProviderRetries = defaultProviderRetries
+	}
+	if l.ProviderRetries == 0 {
+		l.ProviderRetries = defaultProviderRetries
+	}
+	return l
+}
+
 // Config is the top-level shape of config.yaml.
 type Config struct {
-	Model Model `yaml:"model"`
-	Agent Agent `yaml:"agent"`
+	Model  Model  `yaml:"model"`
+	Agent  Agent  `yaml:"agent"`
+	Limits Limits `yaml:"limits,omitempty"`
 }
 
 const defaultConfigTemplate = `model:
@@ -57,6 +99,12 @@ agent:
   name: default
   system_prompt: |
     You are a helpful coding assistant.
+
+# Execution limits (Phase 2B). All values are optional; safe defaults apply.
+# limits:
+#   max_tool_calls: 100               # hard cap on tool executions per run
+#   max_consecutive_failures: 5       # stop after this many consecutive failures
+#   provider_retries: 3               # extra provider attempts for transient failures
 `
 
 // Dir returns Lato's user configuration directory, creating it with

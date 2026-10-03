@@ -123,11 +123,15 @@ func refusal(verdict permissions.Verdict, action permissions.Action) tools.Resul
 // error reports a real execution failure (unknown tool, invalid
 // arguments, failed I/O); the agent loop feeds it back to the model as
 // the call's structured result instead of ending the request. A refusal
-// is a normal result the model can observe and react to.
-func (r *Runtime) executeTool(ctx context.Context, call providers.ToolCall, trk *taskTracker) (tools.Result, error) {
+// is a normal result the model can observe and react to. started reports
+// whether manager.Execute was invoked (i.e. a validation/execution
+// attempt occurred); permission denials and validation-time refusals
+// before execution report started=false.
+func (r *Runtime) executeTool(ctx context.Context, call providers.ToolCall, trk *taskTracker) (tools.Result, error, bool) {
 	if r.perms == nil {
 		// Bare test runtimes without a policy keep legacy behavior.
-		return r.manager.Execute(ctx, call.Name, call.Arguments)
+		res, err := r.manager.Execute(ctx, call.Name, call.Arguments)
+		return res, err, true
 	}
 
 	taskID := trk.taskID()
@@ -139,10 +143,11 @@ func (r *Runtime) executeTool(ctx context.Context, call providers.ToolCall, trk 
 	}
 	if verdict.Decision != permissions.Allow {
 		trk.noteDenied(action)
-		return refusal(verdict, action), nil
+		return refusal(verdict, action), nil, false
 	}
 
-	return r.manager.Execute(ctx, call.Name, call.Arguments)
+	res, err := r.manager.Execute(ctx, call.Name, call.Arguments)
+	return res, err, true
 }
 
 // confirm resolves an Ask verdict. Without an Asker it fails safe;
