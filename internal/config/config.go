@@ -17,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"lato/internal/effort"
+	"lato/internal/persist"
 	"lato/internal/providers"
 )
 
@@ -285,7 +286,7 @@ func (c *Config) Save() error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, out, 0o644); err != nil {
+	if err := persist.WriteFileAtomically(path, out, 0o644); err != nil {
 		return fmt.Errorf("write config file %s: %w", path, err)
 	}
 	return nil

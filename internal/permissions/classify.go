@@ -132,6 +132,15 @@ func classifyPathAction(b Boundary, a Action, rawPath string) Action {
 		return a
 	}
 
+	// Sensitive credential/secret targets are never auto-allowed: both
+	// reads and writes escalate to high-risk so they always require
+	// explicit approval, regardless of the tool's base class.
+	if IsSensitivePath(abs) {
+		a.class = ClassHighRisk
+		a.Reason = fmt.Sprintf("%q targets a sensitive file or directory", RedactSecrets(rel))
+		return a
+	}
+
 	switch a.class {
 	case ClassReadOnly:
 		a.Reason = "read-only access inside the workspace"

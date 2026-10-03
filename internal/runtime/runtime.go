@@ -20,6 +20,7 @@ import (
 	"lato/internal/permissions"
 	"lato/internal/providers"
 	"lato/internal/retrieve"
+	"lato/internal/session"
 	"lato/internal/skills"
 	"lato/internal/task"
 	"lato/internal/tools"
@@ -673,7 +674,7 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 			messages = append(messages, providers.Message{
 				Role:       providers.ToolRole,
 				Name:       tc.Name,
-				Content:    result.Content,
+				Content:    session.FenceToolResult(tc.Name, result.Content),
 				ToolCallID: tc.ID,
 			})
 

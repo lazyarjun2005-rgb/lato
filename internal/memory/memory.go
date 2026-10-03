@@ -24,6 +24,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"lato/internal/persist"
 )
 
 // Kind distinguishes who supplied a fact. User-provided memory is never
@@ -153,7 +155,7 @@ func (s *Store) save() error {
 	if err != nil {
 		return fmt.Errorf("marshal memory: %w", err)
 	}
-	return os.WriteFile(s.path, out, 0o600)
+	return persist.WriteFileAtomically(s.path, out, 0o600)
 }
 
 // Add remembers a fact. Exact duplicates (normalized content) update
