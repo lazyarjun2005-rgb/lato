@@ -65,6 +65,7 @@ type model struct {
 	// open. Like picker, it owns nothing beyond its own selection
 	// state.
 	selectPicker *selectPicker
+	modelPicker  *modelPicker
 
 	// flow is non-nil while the /connect (or /connect import) wizard is
 	// active. It owns its own pickers and inputs; the model only routes
@@ -217,6 +218,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.selectPicker != nil {
 			return m.handleSelectPickerKey(msg)
+		}
+		if m.modelPicker != nil {
+			return m.handleModelPickerKey(msg)
 		}
 		return m.handleKey(msg)
 
@@ -568,6 +572,28 @@ func (m model) handleThemeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, m.themes.handleKey(msg)
 }
 
+func (m model) handleModelPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.Type == tea.KeyEsc {
+		m.modelPicker = nil
+		return m, nil
+	}
+	if msg.Type == tea.KeyEnter {
+		choice, ok := m.modelPicker.selected()
+		effortLevel := m.modelPicker.effort()
+		m.modelPicker = nil
+		if !ok {
+			return m, nil
+		}
+		if choice.providerID != m.providerName {
+			m.entries = append(m.entries, chatEntry{Role: roleError, Content: fmt.Sprintf("model %q belongs to %s; switch provider first with /provider", choice.model.ID, choice.providerName)})
+			m.refreshTranscript()
+			return m, nil
+		}
+		return m.applyModelChoice(choice.model.ID, effortLevel, true)
+	}
+	return m, m.modelPicker.handleKey(msg)
+}
+
 // handleAddModelResult finishes /model add: confirm in the transcript
 // (never echoing credentials — none are involved here) and reopen the
 // grouped model picker so the new entry is immediately visible.
@@ -874,6 +900,9 @@ func (m model) View() string {
 		if m.addFlow.input != nil {
 			return m.addFlow.input.view(m.width, m.height)
 		}
+	}
+	if m.modelPicker != nil {
+		return m.modelPicker.view(m.width, m.height)
 	}
 	if m.selectPicker != nil {
 		return m.selectPicker.view(m.width, m.height)

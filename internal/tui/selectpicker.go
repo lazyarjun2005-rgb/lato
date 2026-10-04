@@ -108,6 +108,7 @@ func newModelPicker(providerID, currentID string, models []providers.ModelInfo, 
 
 // modelGroup is one provider's section in the grouped /model picker.
 type modelGroup struct {
+	ID     string
 	Name   string
 	Models []providers.ModelInfo
 }

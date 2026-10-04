@@ -606,31 +606,14 @@ func (m *model) openModelPickerFor(provider string) {
 		return
 	}
 
-	switch len(models) {
-	case 0:
-		// No models reported; leave the current model as-is.
-	case 1:
-		if err := m.SetModel(models[0].ID); err != nil {
-			m.Println("⚠ %v", err)
-			return
+	groups, ok := m.buildModelGroups(provider, models)
+	if !ok {
+		if len(models) == 0 {
+			m.Println("⚠ no models are available for %s", providers.DisplayName(provider))
 		}
-		if len(m.runtime.Connections()) <= 1 {
-			return // single provider: auto-selection is the whole answer
-		}
-	default:
-	}
-
-	if groups, ok := m.buildModelGroups(provider, models); ok {
-		m.selectPicker = newGroupedModelPicker(groups, m.modelName, m.runtime.Effort())
 		return
 	}
-
-	switch len(models) {
-	case 0:
-		// leave picker closed; the warning above already explains why
-	default:
-		m.selectPicker = newModelPicker(provider, m.modelName, models, m.runtime.Effort())
-	}
+	m.modelPicker = newSearchableModelPicker(groups, provider, m.modelName, m.runtime.Effort())
 }
 
 // buildModelGroups assembles the grouped /model listing: the active
@@ -663,12 +646,12 @@ func buildModelGroupList(activeID string, live []providers.ModelInfo, conns []us
 		}
 	}
 
-	groups := []modelGroup{{Name: providers.DisplayName(activeID), Models: live}}
+	groups := []modelGroup{{ID: activeID, Name: providers.DisplayName(activeID), Models: live}}
 	for _, conn := range conns {
 		if conn.ID == activeID || len(conn.Models) == 0 {
 			continue
 		}
-		g := modelGroup{Name: conn.Name}
+		g := modelGroup{ID: conn.ID, Name: conn.Name}
 		for _, cm := range conn.Models {
 			g.Models = append(g.Models, providers.ModelInfo{ID: cm.ID, Name: cm.Name})
 		}

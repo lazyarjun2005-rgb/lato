@@ -108,6 +108,23 @@ startup-only mouse mode cannot safely be scoped to this modal without regressing
 that behavior. Theme swatches and the live semantic preview still work in
 terminals with reduced color profiles.
 
+## Model Picker
+
+`/model` opens a searchable picker for models discovered from the active
+provider. The list also includes cached models from other configured providers
+and custom model IDs registered with `/model add`; Lato does not invent model
+IDs. Search is case-insensitive and matches model IDs, display names, and
+provider names. The search field is focused on open, and `↑`/`↓`, Home/End,
+and PageUp/PageDown navigate the filtered results.
+
+Press Enter to select the highlighted model, or Esc to cancel. The current
+model is marked in the list. A model belonging to another provider is shown
+with its provider label but cannot be applied until that provider is selected
+explicitly with `/provider`. Successful selections use the existing runtime
+validation and atomic config-save path, preserving provider credentials and
+other settings. Configuration-save or provider-construction failures are
+reported without claiming a successful switch.
+
 On Windows, paste an API key into `/connect` with the terminal's paste command
 (usually `Ctrl+V` or `Ctrl+Shift+V`). Bracketed-paste terminals deliver the
 whole value as one event, so punctuation and embedded newlines are not treated
