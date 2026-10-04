@@ -188,3 +188,54 @@ func TestEffectiveLimitsMaxToolOutput(t *testing.T) {
 		t.Fatalf("expected default 64 KiB for negative, got %d", cfg.EffectiveLimits().MaxToolOutput)
 	}
 }
+
+// TestEffectiveLimitsContextBudget verifies the Phase 3A history byte
+// budget is normalized with a default for zero/negative values, so an
+// unset or hand-edited key can never silently mean "unlimited".
+func TestEffectiveLimitsContextBudget(t *testing.T) {
+	cfg := &Config{Limits: Limits{ContextBudget: 4096}}
+	if got := cfg.EffectiveLimits().ContextBudget; got != 4096 {
+		t.Fatalf("explicit ContextBudget = %d, want 4096", got)
+	}
+
+	for _, set := range []int{0, -5} {
+		cfg = &Config{Limits: Limits{ContextBudget: set}}
+		if got := cfg.EffectiveLimits().ContextBudget; got != 128<<10 {
+			t.Fatalf("ContextBudget %d = %d, want default %d", set, got, 128<<10)
+		}
+	}
+}
+
+// TestEffectiveLimitsMaxHistoryTurns verifies the Phase 3A turn-count
+// budget is normalized with a default for zero/negative values.
+func TestEffectiveLimitsMaxHistoryTurns(t *testing.T) {
+	cfg := &Config{Limits: Limits{MaxHistoryTurns: 3}}
+	if got := cfg.EffectiveLimits().MaxHistoryTurns; got != 3 {
+		t.Fatalf("explicit MaxHistoryTurns = %d, want 3", got)
+	}
+
+	for _, set := range []int{0, -2} {
+		cfg = &Config{Limits: Limits{MaxHistoryTurns: set}}
+		if got := cfg.EffectiveLimits().MaxHistoryTurns; got != 20 {
+			t.Fatalf("MaxHistoryTurns %d = %d, want default 20", set, got)
+		}
+	}
+}
+
+// TestEffectiveLimitsLeaveUnsetHistoryKeysForTrim pins that the two
+// Phase 3A budgets default independently of the Phase 2B/2E limits: the
+// yaml keys are omitempty, so a config that sets only the older limits
+// must still arrive with both history bounds applied.
+func TestEffectiveLimitsLeaveUnsetHistoryKeysForTrim(t *testing.T) {
+	cfg := &Config{Limits: Limits{MaxToolCalls: 7, MaxToolOutput: 999}}
+	l := cfg.EffectiveLimits()
+	if l.ContextBudget != 128<<10 {
+		t.Errorf("ContextBudget = %d, want default %d", l.ContextBudget, 128<<10)
+	}
+	if l.MaxHistoryTurns != 20 {
+		t.Errorf("MaxHistoryTurns = %d, want default 20", l.MaxHistoryTurns)
+	}
+	if l.MaxToolCalls != 7 || l.MaxToolOutput != 999 {
+		t.Errorf("older limits were disturbed: %+v", l)
+	}
+}

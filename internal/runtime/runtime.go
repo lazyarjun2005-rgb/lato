@@ -579,7 +579,20 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 		}
 		turns++
 
-		response, err := r.runModelTurn(ctx, messages, definitions, emit)
+		// Phase 3A: apply the context budget on every model turn, not
+		// once when the run starts. The working set grows with each tool
+		// result, so a budget enforced only up front would be exceeded
+		// long before the loop finished.
+		//
+		// TrimHistory is applied to the slice handed to the provider and
+		// messages is left untouched: the loop keeps appending to it, and
+		// the session is persisted from emitted events, so nothing here can
+		// remove conversation history from disk.
+		turn := TrimHistory(messages, HistoryBudget{
+			MaxBytes: limits.ContextBudget,
+			MaxTurns: limits.MaxHistoryTurns,
+		})
+		response, err := r.runModelTurn(ctx, turn, definitions, emit)
 		if err != nil {
 			emit(Event{Type: EventError, Err: err})
 			return

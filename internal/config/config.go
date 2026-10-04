@@ -63,14 +63,26 @@ type Limits struct {
 	// default. This prevents individual tool results from flooding the
 	// model's context window.
 	MaxToolOutput int `yaml:"max_tool_output,omitempty"`
+	// ContextBudget is the soft ceiling, in bytes, on the conversation
+	// sent to the provider on a single model turn. Zero or negative
+	// selects the default. This bounds how much history is carried
+	// forward, not the size of the request: the current turn is always
+	// sent in full, so one turn larger than this can exceed it.
+	ContextBudget int `yaml:"context_budget,omitempty"`
+	// MaxHistoryTurns caps how many user turns of history are carried
+	// into a single model turn. Zero or negative selects the default.
+	// The current turn is always retained.
+	MaxHistoryTurns int `yaml:"max_history_turns,omitempty"`
 }
 
 const (
 	defaultMaxToolCalls           = 100
 	defaultMaxConsecutiveFailures = 5
 	defaultProviderRetries        = 3
-	defaultToolExecutionTimeout   = 300      // 5 minutes in seconds
-	defaultMaxToolOutput          = 64 << 10 // 64 KiB
+	defaultToolExecutionTimeout   = 300       // 5 minutes in seconds
+	defaultMaxToolOutput          = 64 << 10  // 64 KiB
+	defaultContextBudget          = 128 << 10 // 128 KiB
+	defaultMaxHistoryTurns        = 20
 )
 
 // EffectiveLimits returns the active execution limits, applying safe
@@ -95,6 +107,12 @@ func (c *Config) EffectiveLimits() Limits {
 	}
 	if l.MaxToolOutput <= 0 {
 		l.MaxToolOutput = defaultMaxToolOutput
+	}
+	if l.ContextBudget <= 0 {
+		l.ContextBudget = defaultContextBudget
+	}
+	if l.MaxHistoryTurns <= 0 {
+		l.MaxHistoryTurns = defaultMaxHistoryTurns
 	}
 	return l
 }
@@ -123,6 +141,9 @@ agent:
 #   max_tool_calls: 100               # hard cap on tool executions per run
 #   max_consecutive_failures: 5       # stop after this many consecutive failures
 #   provider_retries: 3               # extra provider attempts for transient failures
+#   max_tool_output: 65536            # bytes; 0/negative = default (64 KiB)
+#   context_budget: 131072            # bytes of history per model turn; 0/negative = default (128 KiB)
+#   max_history_turns: 20             # user turns of history per model turn; 0/negative = default (20)
 `
 
 // Dir returns Lato's user configuration directory, creating it with

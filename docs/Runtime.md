@@ -73,6 +73,9 @@ The runtime uses one loop for both streaming and non-streaming callers.
 build messages (system + history)
         │
         ▼
+ trim history to the context budget
+        │
+        ▼
  stream one model turn
         │
         ├── text / thinking events
@@ -99,13 +102,33 @@ build messages (system + history)
 Detailed steps:
 
 1. Build the message list with the agent system prompt and conversation history.
-2. Emit thinking, then stream one provider turn.
-3. Collect text and tool calls from provider stream events.
-4. If there are no tool calls, emit `EventDone` and stop.
-5. If there are tool calls, append the assistant message.
-6. Execute each tool through the tool manager.
-7. Append each tool result as a tool message.
-8. Repeat from step 2.
+2. Trim that list to the context budget.
+3. Emit thinking, then stream one provider turn.
+4. Collect text and tool calls from provider stream events.
+5. If there are no tool calls, emit `EventDone` and stop.
+6. If there are tool calls, append the assistant message.
+7. Execute each tool through the tool manager.
+8. Append each tool result as a tool message.
+9. Repeat from step 2.
+
+## Context Budgeting (Phase 3A)
+
+Trimming runs on **every model turn**, not once when a request starts,
+because the working set grows with each tool result appended in step 8.
+A budget enforced only at step 1 would be exceeded long before the loop
+finished.
+
+The trim is applied to the slice handed to the provider. The loop's own
+message list is left intact, because the loop keeps appending to it and
+the session is persisted from emitted events rather than from that slice —
+so trimming can never remove conversation history from disk.
+
+History is split into indivisible units (a plain message, or an assistant
+message together with all of its tool results) and whole units are
+evicted, which is what guarantees a tool result is never separated from
+the call that requested it. The unit holding the current user request and
+the newest unit are pinned. See `internal/runtime/history_budget.go` for
+the algorithm and `docs/Config.md` for the user-facing keys.
 
 ## Skill Loading
 
