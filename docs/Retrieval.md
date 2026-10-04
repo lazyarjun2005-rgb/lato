@@ -55,6 +55,14 @@ Symbol and name hits outvalue incidental content hits because they identify purp
 
 ### 3. Evidence assembly
 
+Credential-bearing files (`.env`, `*.pem`, `id_rsa`, `.ssh/`, `.aws/`,
+and similar — see `permissions.IsSensitivePath`) are dropped before
+scoring. Their excerpts are injected into the model prompt
+automatically, with no tool call in between, so this filter is the only
+thing standing between a question like "what is the API key" and a
+verbatim copy of the project's secrets. Binary files are dropped for the
+same reason retrieval has nothing to quote from them.
+
 For each winning file the block carries:
 
 - **Declarations** — the file's Go symbols (functions, methods, structs, interfaces, types, constants, variables) with declaration line numbers, up to 8 per file. This reuses the symbol extraction the index already performs at build time; nothing is re-parsed.

@@ -1,4 +1,4 @@
-package index
+package workspace
 
 import (
 	"os"
@@ -6,6 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+// This file is the single source of truth for which repository paths Lato
+// excludes from a workspace scan. Discovery (Info.Tree, language
+// detection) and the repository index both consult it, so the two can
+// never disagree about what belongs to the project.
 
 // defaultIgnoreDirs are directories always skipped during traversal,
 // regardless of the project or machine. They cover version-control
@@ -39,7 +44,7 @@ var defaultIgnoreDirs = map[string]bool{
 }
 
 // defaultIgnoreNames is a small set of files skipped outright because
-// they are large, generated, or uninteresting for search.
+// they are large, generated, or uninteresting as repository content.
 var defaultIgnoreNames = map[string]bool{
 	"go.sum":            true,
 	"package-lock.json": true,
@@ -47,51 +52,36 @@ var defaultIgnoreNames = map[string]bool{
 	"yarn.lock":         true,
 	"composer.lock":     true,
 	"Gemfile.lock":      true,
-	".gitignore":        true, // repo metadata, not searchable content
+	".gitignore":        true, // repo metadata, not project content
 }
 
-// size- and content-related bounds for the file walk.
-const (
-	// maxTextBytes is the largest file whose content is read into the
-	// index. Anything larger is still listed and searchable by name and
-	// path, but its text is not kept, which bounds memory on huge or
-	// minified files.
-	maxTextBytes = 4 << 20 // 4 MiB
-
-	// maxBinaryScanBytes is how much of a file is scanned when deciding
-	// whether it is binary. Binary detection never reads more than one
-	// buffer, so even a multi-gigabyte file costs a single bounded read.
-	maxBinaryScanBytes = 8192
-
-	// maxIndexFiles caps how many files the index records, so an
-	// enormous repository cannot exhaust memory. The walk itself still
-	// completes; files past the cap are not indexed.
-	maxIndexFiles = 200_000
-)
-
-// gitignorer loads .gitignore rules from the workspace root and reports
-// whether a directory or file is ignored. A missing or unreadable rule
-// file yields no rules: indexing then only skips defaultIgnoreDirs and
-// defaultIgnoreNames, which is deterministic by design.
-type gitignorer struct {
-	patterns []gitPattern
+// Ignore reports whether a workspace-relative path is excluded from
+// repository scans. It combines two rules: a fixed set of directories
+// and generated files that are always skipped, and the project's own
+// .gitignore rules. An Ignore is read-only after construction and safe
+// for concurrent use.
+//
+// A missing or unreadable .gitignore yields no rules: scans then skip
+// only the fixed sets, which is deterministic by design.
+type Ignore struct {
+	patterns []ignorePattern
 }
 
-// gitPattern is one normalized .gitignore rule.
-type gitPattern struct {
+// ignorePattern is one normalized .gitignore rule.
+type ignorePattern struct {
 	negated  bool
 	dirOnly  bool
 	anchored bool
 	glob     string // slash-separated, with ** preserved
 }
 
-// newGitignorer loads .gitignore from root. It never fails; unreadable
-// or absent files simply mean no rules.
-func newGitignorer(root string) *gitignorer {
-	g := &gitignorer{}
+// NewIgnore loads the ignore rules for root. It never fails; an absent
+// or unreadable .gitignore simply means no project-specific rules.
+func NewIgnore(root string) *Ignore {
+	ig := &Ignore{}
 	raw, err := os.ReadFile(filepath.Join(root, ".gitignore"))
 	if err != nil {
-		return g
+		return ig
 	}
 
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -100,17 +90,48 @@ func newGitignorer(root string) *gitignorer {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		g.patterns = append(g.patterns, parseGitPattern(line))
+		ig.patterns = append(ig.patterns, parseIgnorePattern(line))
 	}
-	return g
+	return ig
 }
 
-// parseGitPattern normalizes a single .gitignore line. filepath.ToSlash
-// converts Windows backslash separators to forward slashes so matching
-// uses one consistent separator on every platform.
-func parseGitPattern(line string) gitPattern {
+// SkipDir reports whether a directory should be left out of a scan and
+// not descended into. relDir is slash-separated and relative to the
+// workspace root.
+func (ig *Ignore) SkipDir(relDir string) bool {
+	if relDir == "" || relDir == "." {
+		return false
+	}
+	base := path.Base(relDir)
+	// A directory sharing a generated file's name (e.g. a stray
+	// "vendor" folder) is suspicious, so it is skipped too.
+	if defaultIgnoreDirs[base] || defaultIgnoreNames[base] {
+		return true
+	}
+	return ig.ignored(relDir, true)
+}
+
+// SkipFile reports whether a file should be left out of a scan. relFile
+// is slash-separated and relative to the workspace root.
+func (ig *Ignore) SkipFile(relFile string) bool {
+	if relFile == "" || relFile == "." {
+		return false
+	}
+	// defaultIgnoreDirs is deliberately not consulted here: a *file*
+	// named "build" or "target" is ordinary project content, whereas a
+	// directory of that name is generated output.
+	if defaultIgnoreNames[path.Base(relFile)] {
+		return true
+	}
+	return ig.ignored(relFile, false)
+}
+
+// parseIgnorePattern normalizes a single .gitignore line.
+// filepath.ToSlash converts Windows backslash separators to forward
+// slashes so matching uses one consistent separator on every platform.
+func parseIgnorePattern(line string) ignorePattern {
 	s := filepath.ToSlash(line)
-	p := gitPattern{}
+	p := ignorePattern{}
 	if strings.HasPrefix(s, "!") {
 		p.negated = true
 		s = s[1:]
@@ -130,16 +151,16 @@ func parseGitPattern(line string) gitPattern {
 // ignored reports whether relPath (slash-separated, relative to the
 // workspace root) is ignored. Negation rules override earlier matching
 // rules per git semantics: the last match wins.
-func (g *gitignorer) ignored(relPath string, isDir bool) bool {
+func (ig *Ignore) ignored(relPath string, isDir bool) bool {
 	if relPath == "" || relPath == "." {
 		return false
 	}
 	ignored := false
-	for _, p := range g.patterns {
+	for _, p := range ig.patterns {
 		if p.glob == "" {
 			continue
 		}
-		if !g.patternMatches(p, relPath, isDir) {
+		if !patternMatches(p, relPath, isDir) {
 			continue
 		}
 		ignored = !p.negated
@@ -152,18 +173,31 @@ func (g *gitignorer) ignored(relPath string, isDir bool) bool {
 // directory rules match the path and every ancestor directory, so
 // "build/" also ignores "build/x.go". Directory-only rules never match a
 // file at the exact path, but do match their directory ancestors.
-func (g *gitignorer) patternMatches(p gitPattern, relPath string, isDir bool) bool {
+func patternMatches(p ignorePattern, relPath string, isDir bool) bool {
 	if p.anchored {
 		if p.dirOnly && !isDir {
 			return false
 		}
-		return g.matchGlob(p.glob, true, relPath)
+		return matchGlob(p.glob, true, relPath)
 	}
+
+	// A pattern containing no slash is matched against the base name at
+	// every depth, which is git's rule: "*.log" ignores "debug.log" and
+	// "nested/debug.log" alike. The ancestor loop below cannot do this on
+	// its own, because path.Match's "*" never crosses a separator. A
+	// directory-only rule is not applied to a same-named file here; that
+	// case belongs to the ancestor loop, which checks isDir.
+	if (!p.dirOnly || isDir) && !strings.Contains(p.glob, "/") {
+		if matchGlob(p.glob, false, path.Base(relPath)) {
+			return true
+		}
+	}
+
 	for _, sub := range allSubpaths(relPath) {
 		if p.dirOnly && sub == relPath && !isDir {
 			continue
 		}
-		if g.matchGlob(p.glob, false, sub) {
+		if matchGlob(p.glob, false, sub) {
 			return true
 		}
 	}
@@ -172,7 +206,7 @@ func (g *gitignorer) patternMatches(p gitPattern, relPath string, isDir bool) bo
 
 // matchGlob matches pattern (slash-separated, possibly containing **)
 // against a single path or segment, honoring anchored semantics.
-func (g *gitignorer) matchGlob(pattern string, anchored bool, relPath string) bool {
+func matchGlob(pattern string, anchored bool, relPath string) bool {
 	if pattern == "" {
 		return false
 	}
@@ -183,7 +217,7 @@ func (g *gitignorer) matchGlob(pattern string, anchored bool, relPath string) bo
 	case strings.HasPrefix(pattern, "**/"):
 		// "**/foo" matches foo at any depth.
 		rest := strings.TrimPrefix(pattern, "**/")
-		return g.matchGlob(rest, false, relPath)
+		return matchGlob(rest, false, relPath)
 	case strings.HasSuffix(pattern, "/**"):
 		// "foo/**" matches everything inside foo.
 		prefix := strings.TrimSuffix(pattern, "/**")
@@ -191,7 +225,7 @@ func (g *gitignorer) matchGlob(pattern string, anchored bool, relPath string) bo
 	case strings.Contains(pattern, "/**/"):
 		// "a/**/b" matches b inside a at any depth.
 		parts := strings.SplitN(pattern, "/**/", 2)
-		return g.matchGlob(parts[0], false, relPath) && g.matchGlob(parts[1], false, relPath)
+		return matchGlob(parts[0], false, relPath) && matchGlob(parts[1], false, relPath)
 	default:
 		ok, err := path.Match(pattern, relPath)
 		return err == nil && ok

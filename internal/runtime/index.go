@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"lato/internal/index"
+	"lato/internal/permissions"
 )
 
 // Index returns the workspace index, building it lazily on first call
@@ -48,9 +49,17 @@ func (r *Runtime) RelevantFiles(n int, query string) []index.File {
 // ReadIndexedFile returns the text content of a file by its
 // slash-separated relative path, "" when it is missing, binary, or too
 // large for the body bound.
+//
+// Credential-bearing paths are refused here, at the single point every
+// repository read passes through, so no caller can read a secret the
+// index happens to hold. search_repo filters the same paths from its
+// results.
 func (r *Runtime) ReadIndexedFile(_ context.Context, relPath string) (string, error) {
 	if relPath == "" {
 		return "", fmt.Errorf("file path cannot be empty")
+	}
+	if permissions.IsSensitivePath(relPath) {
+		return "", fmt.Errorf("reading %q is not permitted: it may contain credentials", relPath)
 	}
 	f, ok := r.Index().Lookup(relPath)
 	if !ok {
