@@ -94,8 +94,19 @@ Set the persisted preference in the user configuration file as
 unknown values safely use `electric-blue`. `system` leaves the primary TUI
 colors to the terminal's normal defaults where supported.
 
-Interactive `/themes` selection is planned for Phase 3. This phase provides
-the registry, semantic palette, and persisted configuration foundation only.
+Use `/themes` to open the centered interactive theme picker. The search field
+is focused immediately and filters names case-insensitively by substring.
+`↑`/`↓` (with Home/End and PageUp/PageDown) navigate the results; the selected
+theme previews live through the same semantic styles used by the TUI. Press
+Enter to persist and apply the highlighted theme, or Esc to restore the theme
+that was active when the picker opened. Search text and previews are never
+persisted.
+
+The picker currently uses keyboard navigation. Chat intentionally keeps mouse
+reporting disabled so native terminal text selection is preserved; Bubble Tea's
+startup-only mouse mode cannot safely be scoped to this modal without regressing
+that behavior. Theme swatches and the live semantic preview still work in
+terminals with reduced color profiles.
 
 On Windows, paste an API key into `/connect` with the terminal's paste command
 (usually `Ctrl+V` or `Ctrl+Shift+V`). Bracketed-paste terminals deliver the

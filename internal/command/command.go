@@ -43,6 +43,7 @@ type Context interface {
 	OpenConnectFlow()
 	OpenImportFlow()
 	OpenAddModelFlow()
+	OpenThemePicker()
 	RefreshModels() error
 	LatestResponse() string
 	TranscriptText() string

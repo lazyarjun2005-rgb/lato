@@ -34,6 +34,7 @@ type fakeContext struct {
 	openedConnectFlow    bool
 	openedImportFlow     bool
 	openedAddModelFlow   bool
+	openedThemePicker    bool
 	refreshedModels      bool
 	refreshErr           error
 
@@ -138,6 +139,7 @@ func (f *fakeContext) OpenModelPicker()    { f.openedModelPicker = true }
 func (f *fakeContext) OpenConnectFlow()    { f.openedConnectFlow = true }
 func (f *fakeContext) OpenImportFlow()     { f.openedImportFlow = true }
 func (f *fakeContext) OpenAddModelFlow()   { f.openedAddModelFlow = true }
+func (f *fakeContext) OpenThemePicker()    { f.openedThemePicker = true }
 func (f *fakeContext) RefreshModels() error {
 	f.refreshedModels = true
 	return f.refreshErr

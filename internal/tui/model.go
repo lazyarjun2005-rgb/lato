@@ -39,6 +39,7 @@ const (
 // deliberately does not add.
 type model struct {
 	runtime  *runtime.Runtime
+	config   *config.Config
 	session  *session.Session
 	registry *command.Registry
 	stream   <-chan runtime.Event
@@ -85,7 +86,9 @@ type model struct {
 	// palette is the slash-command autocomplete layer (M16). It is a
 	// pure view of the command registry plus the current input prefix;
 	// accepting a suggestion routes through the normal dispatcher.
-	palette *slashPalette
+	palette   *slashPalette
+	themes    *themePicker
+	themeName string
 
 	// pendingStream holds a stream started by a command (/task resume);
 	// handleKey promotes it to the live stream after dispatch returns.
@@ -139,11 +142,13 @@ func newModel(cfg *config.Config, sess *session.Session, asker *uiAsker, r *runt
 		spinner:      spin,
 		viewport:     viewport.New(0, 0),
 		runtime:      r,
+		config:       cfg,
 		entries:      entries,
 		session:      sess,
 		registry:     registry,
 		palette:      newSlashPalette(registry),
 		asker:        asker,
+		themeName:    cfg.Theme,
 	}
 }
 
@@ -203,6 +208,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.addFlow != nil {
 			return m.handleAddModelKey(msg)
+		}
+		if m.themes != nil {
+			return m.handleThemeKey(msg)
 		}
 		if m.picker != nil {
 			return m.handlePickerKey(msg)
@@ -537,6 +545,29 @@ func (m model) handleAddModelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m model) handleThemeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.Type == tea.KeyEsc {
+		m.themes.cancel()
+		m.themes = nil
+		return m, nil
+	}
+	if msg.Type == tea.KeyEnter {
+		if err := m.themes.apply(); err != nil {
+			m.themes.cancel()
+			m.themes = nil
+			m.entries = append(m.entries, chatEntry{Role: roleError, Content: "theme save failed: " + err.Error()})
+			m.refreshTranscript()
+			return m, nil
+		}
+		m.themeName = m.themes.current
+		m.themes = nil
+		m.entries = append(m.entries, chatEntry{Role: roleSystem, Content: "✓ Theme applied: " + m.themeName})
+		m.refreshTranscript()
+		return m, nil
+	}
+	return m, m.themes.handleKey(msg)
+}
+
 // handleAddModelResult finishes /model add: confirm in the transcript
 // (never echoing credentials — none are involved here) and reopen the
 // grouped model picker so the new entry is immediately visible.
@@ -819,6 +850,9 @@ func (m model) View() string {
 	if m.picker != nil {
 		return m.picker.view(m.width, m.height)
 	}
+	if m.themes != nil {
+		return m.themes.view(m.width, m.height)
+	}
 	if m.flow != nil {
 		if m.flow.selectPicker != nil {
 			return m.flow.selectPicker.view(m.width, m.height)
@@ -843,6 +877,9 @@ func (m model) View() string {
 	}
 	if m.selectPicker != nil {
 		return m.selectPicker.view(m.width, m.height)
+	}
+	if m.themes != nil {
+		return m.themes.view(m.width, m.height)
 	}
 
 	return lipgloss.JoinVertical(

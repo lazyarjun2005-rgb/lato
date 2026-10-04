@@ -33,6 +33,7 @@ func newRegistry() *command.Registry {
 	reg.Register(builtin.NewEffort())
 	reg.Register(builtin.NewFast())
 	reg.Register(builtin.NewConnect())
+	reg.Register(builtin.NewThemes())
 	reg.Register(builtin.NewImportCmd())
 	reg.Register(builtin.NewCopy())
 	reg.Register(builtin.NewExport())
@@ -167,6 +168,22 @@ func (m *model) OpenAddModelFlow() {
 		return
 	}
 	m.addFlow = newAddModelFlow(conns)
+}
+
+// OpenThemePicker opens the searchable theme modal without changing the
+// persisted preference until the user confirms with Enter.
+func (m *model) OpenThemePicker() {
+	previous := m.themeName
+	m.themes = newThemePicker(previous, func(name string) error {
+		old := m.config.Theme
+		m.config.Theme = name
+		if err := m.config.Save(); err != nil {
+			m.config.Theme = old
+			return err
+		}
+		m.themeName = name
+		return nil
+	})
 }
 
 // --- project memory -----------------------------------------------------
