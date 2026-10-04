@@ -16,7 +16,8 @@ func (r *Runtime) limits() config.Limits {
 			MaxToolCalls:           100,
 			MaxConsecutiveFailures: 5,
 			ProviderRetries:        3,
-			ToolExecutionTimeout:   300, // 5 minutes in seconds
+			ToolExecutionTimeout:   300,      // 5 minutes in seconds
+			MaxToolOutput:          64 << 10, // 64 KiB
 		}
 	}
 	return r.cfg.EffectiveLimits()

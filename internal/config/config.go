@@ -58,13 +58,19 @@ type Limits struct {
 	// the default. This is a safety net for tools that don't implement
 	// their own timeout; it is enforced by the runtime, not the tool itself.
 	ToolExecutionTimeout int `yaml:"tool_execution_timeout,omitempty"`
+	// MaxToolOutput is the maximum number of bytes a single tool result
+	// may contribute to the conversation. Zero or negative selects the
+	// default. This prevents individual tool results from flooding the
+	// model's context window.
+	MaxToolOutput int `yaml:"max_tool_output,omitempty"`
 }
 
 const (
 	defaultMaxToolCalls           = 100
 	defaultMaxConsecutiveFailures = 5
 	defaultProviderRetries        = 3
-	defaultToolExecutionTimeout   = 300 // 5 minutes in seconds
+	defaultToolExecutionTimeout   = 300      // 5 minutes in seconds
+	defaultMaxToolOutput          = 64 << 10 // 64 KiB
 )
 
 // EffectiveLimits returns the active execution limits, applying safe
@@ -86,6 +92,9 @@ func (c *Config) EffectiveLimits() Limits {
 	}
 	if l.ToolExecutionTimeout <= 0 {
 		l.ToolExecutionTimeout = defaultToolExecutionTimeout
+	}
+	if l.MaxToolOutput <= 0 {
+		l.MaxToolOutput = defaultMaxToolOutput
 	}
 	return l
 }

@@ -169,3 +169,22 @@ func TestLATOHomeOverrideIsHonored(t *testing.T) {
 		t.Errorf("Dir() = %q, want %q", dir, custom)
 	}
 }
+
+// TestEffectiveLimitsMaxToolOutput verifies the max tool output limit is
+// normalized correctly with defaults for zero/negative values.
+func TestEffectiveLimitsMaxToolOutput(t *testing.T) {
+	cfg := &Config{Limits: Limits{MaxToolOutput: 123}}
+	if cfg.EffectiveLimits().MaxToolOutput != 123 {
+		t.Fatalf("expected 123, got %d", cfg.EffectiveLimits().MaxToolOutput)
+	}
+
+	cfg = &Config{Limits: Limits{MaxToolOutput: 0}}
+	if cfg.EffectiveLimits().MaxToolOutput != 64<<10 {
+		t.Fatalf("expected default 64 KiB, got %d", cfg.EffectiveLimits().MaxToolOutput)
+	}
+
+	cfg = &Config{Limits: Limits{MaxToolOutput: -5}}
+	if cfg.EffectiveLimits().MaxToolOutput != 64<<10 {
+		t.Fatalf("expected default 64 KiB for negative, got %d", cfg.EffectiveLimits().MaxToolOutput)
+	}
+}

@@ -712,10 +712,16 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 				return
 			}
 
+			// Phase 2E: bound tool output size before adding to conversation.
+			content := result.Content
+			if limits.MaxToolOutput > 0 && len(content) > limits.MaxToolOutput {
+				content, _ = TruncateOutput(content, limits.MaxToolOutput)
+			}
+
 			messages = append(messages, providers.Message{
 				Role:       providers.ToolRole,
 				Name:       tc.Name,
-				Content:    session.FenceToolResult(tc.Name, result.Content),
+				Content:    session.FenceToolResult(tc.Name, content),
 				ToolCallID: tc.ID,
 			})
 

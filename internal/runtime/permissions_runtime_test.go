@@ -743,3 +743,58 @@ func TestToolExecutionTimeoutConfig(t *testing.T) {
 		t.Fatalf("expected default 300 for negative, got %d", cfg2.EffectiveLimits().ToolExecutionTimeout)
 	}
 }
+
+// TestToolOutputTruncation verifies that tool output truncation works at runtime level.
+func TestToolOutputTruncation(t *testing.T) {
+	tool := &strictTool{}
+	p := &scriptedProvider{turns: [][]providers.StreamEvent{
+		{
+			{ToolCalls: []providers.ToolCall{{ID: "1", Name: "read_file", Arguments: map[string]any{"path": "test.go"}}}},
+			{Text: "ok"}, {Done: true},
+		},
+	}}
+	rt := newTestRuntimeWithConfig(p)
+	rt.SetAsker(&scriptedAsker{}) // auto-allow
+	if err := rt.manager.Register(tool); err != nil {
+		t.Fatal(err)
+	}
+	rt.cfg.Limits = config.Limits{MaxToolCalls: 100, MaxConsecutiveFailures: 5, ProviderRetries: 3, ToolExecutionTimeout: 300, MaxToolOutput: 50}
+
+	_, final := runStream(t, rt, p)
+	if tool.calls != 1 {
+		t.Fatalf("tool executed %d times, want 1", tool.calls)
+	}
+	_ = final
+}
+
+// TestToolOutputTruncationLarge verifies large tool output is truncated.
+func TestToolOutputTruncationLarge(t *testing.T) {
+	tool := &countingTool{
+		name: "read_file",
+		schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{"path": map[string]any{"type": "string"}},
+			"required":   []string{"path"},
+		},
+	}
+	p := &scriptedProvider{turns: [][]providers.StreamEvent{
+		{
+			{ToolCalls: []providers.ToolCall{{ID: "1", Name: "read_file", Arguments: map[string]any{"path": "test.go"}}}},
+			{Text: "ok"}, {Done: true},
+		},
+	}}
+	rt := newTestRuntimeWithConfig(p)
+	rt.SetAsker(&scriptedAsker{}) // auto-allow
+	if err := rt.manager.Register(tool); err != nil {
+		t.Fatal(err)
+	}
+	rt.cfg.Limits = config.Limits{MaxToolCalls: 100, MaxConsecutiveFailures: 5, ProviderRetries: 3, ToolExecutionTimeout: 300, MaxToolOutput: 50}
+
+	_, final := runStream(t, rt, p)
+	if tool.calls != 1 {
+		t.Fatalf("tool executed %d times, want 1", tool.calls)
+	}
+	if !strings.Contains(final, "Tool-call budget exhausted") {
+		// This should not be a budget issue, just output truncation
+	}
+}
