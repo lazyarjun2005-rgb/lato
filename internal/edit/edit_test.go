@@ -423,3 +423,33 @@ func TestResultChanged(t *testing.T) {
 		t.Error("creation should count as changed")
 	}
 }
+
+func TestResolveRejectsSymlinkEscape(t *testing.T) {
+	dir := t.TempDir()
+	outside := t.TempDir()
+	target := filepath.Join(outside, "secret.txt")
+	if err := os.WriteFile(target, []byte("top secret"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "evil.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks not supported: %v", err)
+	}
+	ws := NewWorkspace(dir)
+	if _, _, err := ws.Resolve("evil.txt"); err == nil {
+		t.Error("Resolve() should reject a symlink that escapes the workspace")
+	}
+}
+
+func TestResolveAllowsSymlinkInsideWorkspace(t *testing.T) {
+	dir := t.TempDir()
+	target := writeTemp(t, dir, "real.txt", "hello")
+	link := filepath.Join(dir, "alias.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks not supported: %v", err)
+	}
+	ws := NewWorkspace(dir)
+	if _, _, err := ws.Resolve("alias.txt"); err != nil {
+		t.Errorf("Resolve() should allow an in-workspace symlink, got %v", err)
+	}
+}

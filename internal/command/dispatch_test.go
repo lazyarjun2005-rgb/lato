@@ -59,6 +59,7 @@ func (f *fakeContext) OpenModelPicker()    {}
 func (f *fakeContext) OpenConnectFlow()    {}
 func (f *fakeContext) OpenImportFlow()     {}
 func (f *fakeContext) OpenAddModelFlow()   {}
+func (f *fakeContext) OpenThemePicker()    {}
 func (f *fakeContext) RefreshModels() error {
 	return nil
 }

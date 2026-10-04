@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"lato/internal/index"
+	"lato/internal/permissions"
 )
 
 // Bounds for one evidence block. They exist so a question over any
@@ -107,6 +108,14 @@ func ForQuestion(idx *index.Index, repo, question string) *Evidence {
 	for i := range files {
 		f := &files[i]
 		if f.Binary {
+			continue
+		}
+		// Retrieval excerpts are injected into the model prompt
+		// automatically, without a tool call. A credential file that
+		// happens to match the question's words (".env", "*.pem",
+		// cloud credential directories) must never reach the model, so
+		// it is dropped here rather than at the tool boundary.
+		if permissions.IsSensitivePath(f.Path) {
 			continue
 		}
 		s := scoreFile(f, terms)
@@ -278,9 +287,10 @@ func excerpts(body string, matchLines []int) []Excerpt {
 
 // relatedFiles follows f's Go imports to other indexed files: an import
 // path's last meaningful segment is matched against candidate files'
-// containing directory or package name. Files already in the evidence
-// block are skipped, seen tracks the global cap across all evidence
-// files, and each result carries a small symbol summary.
+// containing directory or package name. Credential-bearing candidates
+// are skipped, files already in the evidence block are skipped, seen
+// tracks the global cap across all evidence files, and each result
+// carries a small symbol summary.
 func relatedFiles(idx *index.Index, f *index.File, primary, seen map[string]bool) []RelatedFile {
 	if len(seen) >= maxRelated {
 		return nil
@@ -309,6 +319,15 @@ func relatedFiles(idx *index.Index, f *index.File, primary, seen map[string]bool
 		}
 		g := &idx.Files()[i]
 		if g.Path == f.Path || g.Lang != "Go" || primary[g.Path] || seen[g.Path] {
+			continue
+		}
+		// The same credential filter the primary-file pass applies, and
+		// for the same reason: this loop walks the unfiltered index, so a
+		// sensitive Go file whose package or directory matches an import
+		// segment would otherwise contribute its path, package name, and
+		// declaration names to the prompt. Their bodies are never quoted
+		// here, but the names still identify the credential.
+		if permissions.IsSensitivePath(g.Path) {
 			continue
 		}
 		base := path.Base(path.Dir(g.Path))

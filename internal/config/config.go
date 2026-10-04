@@ -17,7 +17,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"lato/internal/effort"
+	"lato/internal/persist"
 	"lato/internal/providers"
+	"lato/internal/theme"
 )
 
 // legacyHomeName is the pre-M14 configuration directory directly under
@@ -39,10 +41,89 @@ type Agent struct {
 	SystemPrompt string `yaml:"system_prompt"`
 }
 
+// Limits bounds agent execution so a runaway request terminates. Every
+// value that is <= 0 is treated as "unset" and resolved to the safe
+// default below by (*Config).EffectiveLimits(), never to "no limit".
+type Limits struct {
+	// MaxToolCalls caps the number of tool calls that may actually run
+	// (the budget is enforced before each call's manager.Execute).
+	MaxToolCalls int `yaml:"max_tool_calls,omitempty"`
+	// MaxConsecutiveFailures stops the run after this many tool results
+	// in a row report an error/denial/validation failure.
+	MaxConsecutiveFailures int `yaml:"max_consecutive_failures,omitempty"`
+	// ProviderRetries is the number of extra provider attempts after the
+	// first one for transient, pre-content failures.
+	ProviderRetries int `yaml:"provider_retries,omitempty"`
+	// ToolExecutionTimeout is the maximum wall-clock time a single tool
+	// execution may run before being cancelled. Zero or negative selects
+	// the default. This is a safety net for tools that don't implement
+	// their own timeout; it is enforced by the runtime, not the tool itself.
+	ToolExecutionTimeout int `yaml:"tool_execution_timeout,omitempty"`
+	// MaxToolOutput is the maximum number of bytes a single tool result
+	// may contribute to the conversation. Zero or negative selects the
+	// default. This prevents individual tool results from flooding the
+	// model's context window.
+	MaxToolOutput int `yaml:"max_tool_output,omitempty"`
+	// ContextBudget is the soft ceiling, in bytes, on the conversation
+	// sent to the provider on a single model turn. Zero or negative
+	// selects the default. This bounds how much history is carried
+	// forward, not the size of the request: the current turn is always
+	// sent in full, so one turn larger than this can exceed it.
+	ContextBudget int `yaml:"context_budget,omitempty"`
+	// MaxHistoryTurns caps how many user turns of history are carried
+	// into a single model turn. Zero or negative selects the default.
+	// The current turn is always retained.
+	MaxHistoryTurns int `yaml:"max_history_turns,omitempty"`
+}
+
+const (
+	defaultMaxToolCalls           = 100
+	defaultMaxConsecutiveFailures = 5
+	defaultProviderRetries        = 3
+	defaultToolExecutionTimeout   = 300       // 5 minutes in seconds
+	defaultMaxToolOutput          = 64 << 10  // 64 KiB
+	defaultContextBudget          = 128 << 10 // 128 KiB
+	defaultMaxHistoryTurns        = 20
+)
+
+// EffectiveLimits returns the active execution limits, applying safe
+// defaults to unset or non-positive values so a hand-edited or missing
+// setting can never silently mean "unlimited".
+func (c *Config) EffectiveLimits() Limits {
+	l := c.Limits
+	if l.MaxToolCalls <= 0 {
+		l.MaxToolCalls = defaultMaxToolCalls
+	}
+	if l.MaxConsecutiveFailures <= 0 {
+		l.MaxConsecutiveFailures = defaultMaxConsecutiveFailures
+	}
+	if l.ProviderRetries < 0 {
+		l.ProviderRetries = defaultProviderRetries
+	}
+	if l.ProviderRetries == 0 {
+		l.ProviderRetries = defaultProviderRetries
+	}
+	if l.ToolExecutionTimeout <= 0 {
+		l.ToolExecutionTimeout = defaultToolExecutionTimeout
+	}
+	if l.MaxToolOutput <= 0 {
+		l.MaxToolOutput = defaultMaxToolOutput
+	}
+	if l.ContextBudget <= 0 {
+		l.ContextBudget = defaultContextBudget
+	}
+	if l.MaxHistoryTurns <= 0 {
+		l.MaxHistoryTurns = defaultMaxHistoryTurns
+	}
+	return l
+}
+
 // Config is the top-level shape of config.yaml.
 type Config struct {
-	Model Model `yaml:"model"`
-	Agent Agent `yaml:"agent"`
+	Model  Model  `yaml:"model"`
+	Agent  Agent  `yaml:"agent"`
+	Limits Limits `yaml:"limits,omitempty"`
+	Theme  string `yaml:"theme,omitempty"`
 }
 
 const defaultConfigTemplate = `model:
@@ -56,6 +137,15 @@ agent:
   name: default
   system_prompt: |
     You are a helpful coding assistant.
+
+# Execution limits (Phase 2B). All values are optional; safe defaults apply.
+# limits:
+#   max_tool_calls: 100               # hard cap on tool executions per run
+#   max_consecutive_failures: 5       # stop after this many consecutive failures
+#   provider_retries: 3               # extra provider attempts for transient failures
+#   max_tool_output: 65536            # bytes; 0/negative = default (64 KiB)
+#   context_budget: 131072            # bytes of history per model turn; 0/negative = default (128 KiB)
+#   max_history_turns: 20             # user turns of history per model turn; 0/negative = default (20)
 `
 
 // Dir returns Lato's user configuration directory, creating it with
@@ -246,6 +336,7 @@ func Load() (*Config, error) {
 		}
 		cfg.Model.Effort = level.String()
 	}
+	cfg.Theme, _ = theme.Resolve(cfg.Theme)
 
 	// Source the API key from the environment, using the environment
 	// variable declared by the active provider's registry entry. Keys
@@ -285,7 +376,7 @@ func (c *Config) Save() error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, out, 0o644); err != nil {
+	if err := persist.WriteFileAtomically(path, out, 0o644); err != nil {
 		return fmt.Errorf("write config file %s: %w", path, err)
 	}
 	return nil

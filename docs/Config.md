@@ -91,6 +91,61 @@ is simply not required when they are already set.
 | `name`          | No       | Display name of the default agent.               |
 | `system_prompt` | No       | Base system prompt for the agent.                |
 
+### `limits`
+
+All fields are optional. A missing, zero, or negative value selects the
+default, so an unset or hand-edited key can never silently mean
+"unlimited".
+
+```yaml
+limits:
+  max_tool_calls: 100
+  max_consecutive_failures: 5
+  provider_retries: 3
+  max_tool_output: 65536
+  context_budget: 131072
+  max_history_turns: 20
+```
+
+| Field                      | Default  | Description                                                                |
+| -------------------------- | -------- | -------------------------------------------------------------------------- |
+| `max_tool_calls`           | `100`    | Hard cap on tool executions per run.                                        |
+| `max_consecutive_failures` | `5`      | Stop after this many consecutive tool failures.                             |
+| `provider_retries`         | `3`      | Extra provider attempts for transient, pre-content failures.                |
+| `max_tool_output`          | `65536`  | Bytes a single tool result may contribute (Phase 2E).                       |
+| `context_budget`           | `131072` | Bytes of history sent to the provider on one model turn (Phase 3A).         |
+| `max_history_turns`        | `20`     | User turns of history sent on one model turn (Phase 3A).                    |
+
+#### History budgeting (`context_budget`, `max_history_turns`)
+
+The budget is applied on **every model turn**, not once when a request
+starts, because the working set grows with each tool result.
+
+The bound is **bytes, not tokens**. Lato supports providers with
+different tokenizers and has no token estimator, so a byte limit is
+reported as a byte limit.
+
+Trimming never breaks message structure. History is split into
+indivisible units — a plain message, or an assistant message together
+with all of its tool results — and whole units are evicted, so a tool
+result is never separated from the call that requested it.
+
+Two units are pinned regardless of budget:
+
+- the unit holding the **current user request**, so a budget can never
+  silently drop what the user just asked;
+- the **newest unit**, which during a tool loop is the assistant message
+  and its results, so the model is never asked to act on a tool call
+  whose output it has not seen.
+
+When those two pins do not both fit within `context_budget`, the budget
+is exceeded rather than either pin broken. Everything between them is
+still evicted normally, and a single gap may appear between the pinned
+request and the retained recent run.
+
+Leading system messages are pinned separately and are **not** counted
+against `context_budget`.
+
 ## Functions
 
 ### `Dir`

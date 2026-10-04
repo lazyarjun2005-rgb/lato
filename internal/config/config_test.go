@@ -91,6 +91,80 @@ func TestLoadCreatesDefaultConfigUnderPlatformDir(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(cfgDir, "config.yaml")); err != nil {
 		t.Fatalf("default config not created under %s: %v", cfgDir, err)
 	}
+	if cfg.Theme != "lato" {
+		t.Fatalf("default theme = %q, want lato", cfg.Theme)
+	}
+}
+
+func TestLoadLegacyConfigDefaultsTheme(t *testing.T) {
+	dir := isolateConfig(t)
+	contents := "model:\n  provider: ollama\n  endpoint: http://localhost:11434\n  name: llama3\nagent:\n  name: default\n"
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Theme != "lato" {
+		t.Fatalf("legacy theme = %q, want lato", cfg.Theme)
+	}
+}
+
+func TestLoadLegacyThemeAliasesCanonicalize(t *testing.T) {
+	for legacy, want := range map[string]string{"electric-blue": "lato", "opencode": "lato-orange"} {
+		dir := isolateConfig(t)
+		contents := "model:\n  provider: ollama\n  endpoint: http://localhost:11434\n  name: llama3\nagent:\n  name: default\ntheme: " + legacy + "\n"
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load(%q) error = %v", legacy, err)
+		}
+		if cfg.Theme != want {
+			t.Errorf("Load(%q).Theme = %q, want %q", legacy, cfg.Theme, want)
+		}
+	}
+}
+
+func TestLoadInvalidThemeFallsBack(t *testing.T) {
+	dir := isolateConfig(t)
+	contents := "model:\n  provider: ollama\n  endpoint: http://localhost:11434\n  name: llama3\nagent:\n  name: default\ntheme: no-such-theme\n"
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Theme != "lato" {
+		t.Fatalf("invalid theme = %q, want lato", cfg.Theme)
+	}
+}
+
+func TestThemePreferencePersistsAndReloads(t *testing.T) {
+	isolateConfig(t)
+	cfg := &Config{Model: Model{Provider: "ollama", Endpoint: "http://localhost:11434", Name: "llama3"}, Agent: Agent{Name: "default"}, Theme: "DrAcUlA"}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if loaded.Theme != "dracula" {
+		t.Fatalf("reloaded theme = %q, want dracula", loaded.Theme)
+	}
 }
 
 // TestDirMigratesLegacyHome verifies a pre-M14 ~/.lato home is copied
@@ -167,5 +241,75 @@ func TestLATOHomeOverrideIsHonored(t *testing.T) {
 	}
 	if dir != custom {
 		t.Errorf("Dir() = %q, want %q", dir, custom)
+	}
+}
+
+// TestEffectiveLimitsMaxToolOutput verifies the max tool output limit is
+// normalized correctly with defaults for zero/negative values.
+func TestEffectiveLimitsMaxToolOutput(t *testing.T) {
+	cfg := &Config{Limits: Limits{MaxToolOutput: 123}}
+	if cfg.EffectiveLimits().MaxToolOutput != 123 {
+		t.Fatalf("expected 123, got %d", cfg.EffectiveLimits().MaxToolOutput)
+	}
+
+	cfg = &Config{Limits: Limits{MaxToolOutput: 0}}
+	if cfg.EffectiveLimits().MaxToolOutput != 64<<10 {
+		t.Fatalf("expected default 64 KiB, got %d", cfg.EffectiveLimits().MaxToolOutput)
+	}
+
+	cfg = &Config{Limits: Limits{MaxToolOutput: -5}}
+	if cfg.EffectiveLimits().MaxToolOutput != 64<<10 {
+		t.Fatalf("expected default 64 KiB for negative, got %d", cfg.EffectiveLimits().MaxToolOutput)
+	}
+}
+
+// TestEffectiveLimitsContextBudget verifies the Phase 3A history byte
+// budget is normalized with a default for zero/negative values, so an
+// unset or hand-edited key can never silently mean "unlimited".
+func TestEffectiveLimitsContextBudget(t *testing.T) {
+	cfg := &Config{Limits: Limits{ContextBudget: 4096}}
+	if got := cfg.EffectiveLimits().ContextBudget; got != 4096 {
+		t.Fatalf("explicit ContextBudget = %d, want 4096", got)
+	}
+
+	for _, set := range []int{0, -5} {
+		cfg = &Config{Limits: Limits{ContextBudget: set}}
+		if got := cfg.EffectiveLimits().ContextBudget; got != 128<<10 {
+			t.Fatalf("ContextBudget %d = %d, want default %d", set, got, 128<<10)
+		}
+	}
+}
+
+// TestEffectiveLimitsMaxHistoryTurns verifies the Phase 3A turn-count
+// budget is normalized with a default for zero/negative values.
+func TestEffectiveLimitsMaxHistoryTurns(t *testing.T) {
+	cfg := &Config{Limits: Limits{MaxHistoryTurns: 3}}
+	if got := cfg.EffectiveLimits().MaxHistoryTurns; got != 3 {
+		t.Fatalf("explicit MaxHistoryTurns = %d, want 3", got)
+	}
+
+	for _, set := range []int{0, -2} {
+		cfg = &Config{Limits: Limits{MaxHistoryTurns: set}}
+		if got := cfg.EffectiveLimits().MaxHistoryTurns; got != 20 {
+			t.Fatalf("MaxHistoryTurns %d = %d, want default 20", set, got)
+		}
+	}
+}
+
+// TestEffectiveLimitsLeaveUnsetHistoryKeysForTrim pins that the two
+// Phase 3A budgets default independently of the Phase 2B/2E limits: the
+// yaml keys are omitempty, so a config that sets only the older limits
+// must still arrive with both history bounds applied.
+func TestEffectiveLimitsLeaveUnsetHistoryKeysForTrim(t *testing.T) {
+	cfg := &Config{Limits: Limits{MaxToolCalls: 7, MaxToolOutput: 999}}
+	l := cfg.EffectiveLimits()
+	if l.ContextBudget != 128<<10 {
+		t.Errorf("ContextBudget = %d, want default %d", l.ContextBudget, 128<<10)
+	}
+	if l.MaxHistoryTurns != 20 {
+		t.Errorf("MaxHistoryTurns = %d, want default 20", l.MaxHistoryTurns)
+	}
+	if l.MaxToolCalls != 7 || l.MaxToolOutput != 999 {
+		t.Errorf("older limits were disturbed: %+v", l)
 	}
 }

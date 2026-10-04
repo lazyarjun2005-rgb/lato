@@ -33,6 +33,7 @@ func newRegistry() *command.Registry {
 	reg.Register(builtin.NewEffort())
 	reg.Register(builtin.NewFast())
 	reg.Register(builtin.NewConnect())
+	reg.Register(builtin.NewThemes())
 	reg.Register(builtin.NewImportCmd())
 	reg.Register(builtin.NewCopy())
 	reg.Register(builtin.NewExport())
@@ -167,6 +168,22 @@ func (m *model) OpenAddModelFlow() {
 		return
 	}
 	m.addFlow = newAddModelFlow(conns)
+}
+
+// OpenThemePicker opens the searchable theme modal without changing the
+// persisted preference until the user confirms with Enter.
+func (m *model) OpenThemePicker() {
+	previous := m.themeName
+	m.themes = newThemePicker(previous, func(name string) error {
+		old := m.config.Theme
+		m.config.Theme = name
+		if err := m.config.Save(); err != nil {
+			m.config.Theme = old
+			return err
+		}
+		m.themeName = name
+		return nil
+	})
 }
 
 // --- project memory -----------------------------------------------------
@@ -588,32 +605,24 @@ func (m *model) openModelPickerFor(provider string) {
 		m.Println("⚠ %v", err)
 		return
 	}
-
-	switch len(models) {
-	case 0:
-		// No models reported; leave the current model as-is.
-	case 1:
+	if len(models) == 1 {
 		if err := m.SetModel(models[0].ID); err != nil {
 			m.Println("⚠ %v", err)
 			return
 		}
 		if len(m.runtime.Connections()) <= 1 {
-			return // single provider: auto-selection is the whole answer
+			return
 		}
-	default:
 	}
 
-	if groups, ok := m.buildModelGroups(provider, models); ok {
-		m.selectPicker = newGroupedModelPicker(groups, m.modelName, m.runtime.Effort())
+	groups, ok := m.buildModelGroups(provider, models)
+	if !ok {
+		if len(models) == 0 {
+			m.Println("⚠ no models are available for %s", providers.DisplayName(provider))
+		}
 		return
 	}
-
-	switch len(models) {
-	case 0:
-		// leave picker closed; the warning above already explains why
-	default:
-		m.selectPicker = newModelPicker(provider, m.modelName, models, m.runtime.Effort())
-	}
+	m.modelPicker = newSearchableModelPicker(groups, provider, m.modelName, m.runtime.Effort())
 }
 
 // buildModelGroups assembles the grouped /model listing: the active
@@ -646,12 +655,12 @@ func buildModelGroupList(activeID string, live []providers.ModelInfo, conns []us
 		}
 	}
 
-	groups := []modelGroup{{Name: providers.DisplayName(activeID), Models: live}}
+	groups := []modelGroup{{ID: activeID, Name: providers.DisplayName(activeID), Models: live}}
 	for _, conn := range conns {
 		if conn.ID == activeID || len(conn.Models) == 0 {
 			continue
 		}
-		g := modelGroup{Name: conn.Name}
+		g := modelGroup{ID: conn.ID, Name: conn.Name}
 		for _, cm := range conn.Models {
 			g.Models = append(g.Models, providers.ModelInfo{ID: cm.ID, Name: cm.Name})
 		}

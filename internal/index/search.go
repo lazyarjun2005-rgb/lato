@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"lato/internal/permissions"
 )
 
 // Match is one search result. It describes where the query matched so a
@@ -305,6 +307,13 @@ func (i *Index) Relevance(opts Options) []File {
 	var items []item
 
 	for _, f := range i.files {
+		// Credential-bearing files (".env", "*.pem", cloud credential
+		// dirs) may be indexed so they can be *skipped* explicitly, but
+		// they must never be recommended to a caller: relevance feeds
+		// the repository snapshot injected into the model prompt.
+		if permissions.IsSensitivePath(f.Path) {
+			continue
+		}
 		var score int
 		if len(queryTerms) > 0 {
 			// Query mode: relevance comes from the question's own words.

@@ -169,3 +169,40 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+
+func TestSensitiveCommandTargetsRequireApproval(t *testing.T) {
+	lines := []struct {
+		line string
+	}{
+		{"cat .env"},
+		{"head .env.local"},
+		{"tail .env"},
+		{"grep TOKEN .env"},
+		{"cp .aws/credentials /tmp/credentials"},
+		{"cat ~/.ssh/id_rsa"},
+		{"ls .docker/config.json"},
+		{"cat certs/server.key"},
+		{"cat id_ed25519"},
+		{"head .kube/config"},
+	}
+	for _, c := range lines {
+		assertCommand(t, c.line, ClassHighRisk, Ask)
+	}
+}
+
+func TestSafeCommandsWithNormalPathsStillAllowed(t *testing.T) {
+	lines := []string{
+		"cat README.md",
+		"head go.mod",
+		"tail app.log",
+		"grep -rn PORT src",
+		"cat environment.txt", // substring-like name must NOT trigger sensitive
+		"ls src",
+		"find . -name '*.go'",
+		"go test ./...",
+		"git status",
+	}
+	for _, line := range lines {
+		assertCommand(t, line, ClassCommandExecution, Allow)
+	}
+}

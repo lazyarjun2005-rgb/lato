@@ -65,6 +65,11 @@ func (r Result) Changed() bool { return r.Before != r.After }
 // inside it.
 type Workspace struct {
 	root string
+	// realRoot is the symlink-resolved form of root, computed lazily.
+	// Containment checks in Resolve compare against this canonical form
+	// so a symlink inside the workspace cannot redirect an operation
+	// outside it.
+	realRoot string
 
 	// OnChange, when set, is called after a file was created or its
 	// content changed. Owners of derived state (the runtime's cached
@@ -77,6 +82,50 @@ type Workspace struct {
 // should be the absolute workspace root discovered at startup.
 func NewWorkspace(root string) *Workspace {
 	return &Workspace{root: root}
+}
+
+// canonicalRoot returns the symlink-resolved form of the workspace
+// root, caching it across calls.
+func (w *Workspace) canonicalRoot() string {
+	if w.realRoot == "" {
+		abs, err := filepath.Abs(w.root)
+		if err != nil {
+			abs = w.root
+		}
+		if real, err := filepath.EvalSymlinks(abs); err == nil && real != "" {
+			abs = real
+		}
+		w.realRoot = abs
+	}
+	return w.realRoot
+}
+
+// resolveExisting resolves symlinks in the deepest existing ancestor of
+// abs and re-appends the not-yet-existing tail. It preserves legitimate
+// new files (whose parent exists) while refusing to follow a symlink
+// out of the workspace.
+func resolveExisting(abs string) (string, error) {
+	existing := abs
+	var tail []string
+	for {
+		if _, err := os.Lstat(existing); err == nil {
+			break
+		}
+		parent := filepath.Dir(existing)
+		if parent == existing {
+			return "", fmt.Errorf("no existing ancestor for %s", abs)
+		}
+		tail = append([]string{filepath.Base(existing)}, tail...)
+		existing = parent
+	}
+	real, err := filepath.EvalSymlinks(existing)
+	if err != nil || real == "" {
+		return "", fmt.Errorf("cannot resolve symlinks for %s", abs)
+	}
+	for _, seg := range tail {
+		real = filepath.Join(real, seg)
+	}
+	return real, nil
 }
 
 // Root returns the absolute path all operations are confined to.
@@ -95,8 +144,9 @@ func (w *Workspace) Root() string { return w.root }
 //
 // Because backslashes always mean "separator" here, a file whose name
 // literally contains a backslash cannot be addressed by these tools;
-// such names are effectively reserved. The check is lexical; it does
-// not follow symlinks.
+// such names are effectively reserved. The lexical check rejects
+// absolute/UNC/drive forms; symlinks are then resolved against the
+// canonical workspace root so a link pointing outside is refused.
 func (w *Workspace) Resolve(relPath string) (abs, slashRel string, err error) {
 	p := strings.TrimSpace(relPath)
 	if p == "" {
@@ -125,6 +175,20 @@ func (w *Workspace) Resolve(relPath string) (abs, slashRel string, err error) {
 	rel, relErr := filepath.Rel(w.root, abs)
 	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", "", fmt.Errorf("%w: %q escapes the workspace root", ErrInvalidPath, relPath)
+	}
+
+	// Symlink-aware confinement: the deepest existing ancestor of the
+	// target is resolved through any symlinks, and the result must stay
+	// under the canonical workspace root. A symlink inside the workspace
+	// that points outside is rejected instead of being followed.
+	real, err := resolveExisting(abs)
+	if err != nil {
+		return "", "", fmt.Errorf("%w: %q could not be resolved: %v", ErrInvalidPath, relPath, err)
+	}
+	realRoot := w.canonicalRoot()
+	realRel, relErr := filepath.Rel(realRoot, real)
+	if relErr != nil || realRel == ".." || strings.HasPrefix(realRel, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("%w: %q resolves outside the workspace via a symlink", ErrInvalidPath, relPath)
 	}
 	return abs, cleaned, nil
 }

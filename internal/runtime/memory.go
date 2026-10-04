@@ -10,6 +10,7 @@ import (
 
 	"lato/internal/memory"
 	"lato/internal/providers"
+	"lato/internal/session"
 )
 
 // injectLimits bound how much memory one request may carry.
@@ -65,13 +66,13 @@ func (r *Runtime) buildMessages(history []providers.Message) ([]providers.Messag
 
 	// Repository context + source evidence for code questions.
 	if ctxtext := r.contextFor(history); ctxtext != "" {
-		system += "\n\n" + ctxtext
+		system += "\n\n" + session.FenceUntrusted("repository_context", ctxtext)
 	}
 
 	// Relevant durable project facts (bounded, lexical).
 	memCount := 0
 	if block := r.relevantMemory(goal); block != "" {
-		system += "\n\n" + block
+		system += "\n\n" + session.FenceUntrusted("project_memory", block)
 		memCount = strings.Count(block, "\n- [")
 	}
 

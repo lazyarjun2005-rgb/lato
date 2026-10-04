@@ -4,8 +4,55 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+
 	"lato/internal/providers"
 )
+
+func TestConnectInputHandlesBracketedPaste(t *testing.T) {
+	f := &connectFlow{input: newInputModal(inputStep{title: "Provider", prompt: "API key:", masked: true})}
+	pasted := "sk-test!@#$%^&*()\nsecond-line"
+
+	active, cmd := f.handleKey(nil, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(pasted), Paste: true})
+	if !active || cmd == nil {
+		t.Fatalf("paste handling = active %v, cmd %v; want active and an input command", active, cmd)
+	}
+	if got := f.input.Value(); got != strings.ReplaceAll(pasted, "\n", " ") {
+		t.Errorf("pasted API key = %q, want single-line input %q", got, strings.ReplaceAll(pasted, "\n", " "))
+	}
+}
+
+func TestConnectInputPreservesClipboardCommand(t *testing.T) {
+	f := &connectFlow{input: newInputModal(inputStep{title: "Provider", prompt: "API key:", masked: true})}
+
+	active, cmd := f.handleKey(nil, tea.KeyMsg{Type: tea.KeyCtrlV})
+	if !active {
+		t.Fatal("Ctrl+V unexpectedly cancelled the connect flow")
+	}
+	if cmd == nil {
+		t.Fatal("Ctrl+V clipboard command was discarded by the connect flow")
+	}
+}
+
+func TestMainInputPasteDoesNotTriggerShortcuts(t *testing.T) {
+	in := textinput.New()
+	in.Focus()
+	m := model{input: in}
+	pasted := "key-with-ctrl-c\nnext line"
+
+	got, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(pasted), Paste: true})
+	updated := got.(model)
+	if updated.quitting {
+		t.Fatal("pasted content triggered quit")
+	}
+	if cmd == nil {
+		t.Fatal("bracketed paste did not update the input")
+	}
+	if updated.input.Value() != strings.ReplaceAll(pasted, "\n", " ") {
+		t.Errorf("main input = %q, want single-line input %q", updated.input.Value(), strings.ReplaceAll(pasted, "\n", " "))
+	}
+}
 
 // TestConnectFlowOpenRouterUsesRegisteredEndpoint is the regression
 // test for the manual /connect failure: selecting OpenRouter and typing

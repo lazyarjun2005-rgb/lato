@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"lato/internal/workspace"
 )
 
 // File describes one indexed file in the repository. It is the entry the
@@ -36,10 +38,31 @@ type Symbol struct {
 	Pkg  string // Go package path the symbol belongs to, "" if unknown
 }
 
+// size- and content-related bounds for the file walk. Which *paths* are
+// scanned is decided by workspace.Ignore; these bound what is read once
+// a path has been accepted.
+const (
+	// maxTextBytes is the largest file whose content is read into the
+	// index. Anything larger is still listed and searchable by name and
+	// path, but its text is not kept, which bounds memory on huge or
+	// minified files.
+	maxTextBytes = 4 << 20 // 4 MiB
+
+	// maxBinaryScanBytes is how much of a file is scanned when deciding
+	// whether it is binary. Binary detection never reads more than one
+	// buffer, so even a multi-gigabyte file costs a single bounded read.
+	maxBinaryScanBytes = 8192
+
+	// maxIndexFiles caps how many files the index records, so an
+	// enormous repository cannot exhaust memory. The walk itself still
+	// completes; files past the cap are not indexed.
+	maxIndexFiles = 200_000
+)
+
 // walker builds an index by walking the workspace tree once.
 type walker struct {
 	root       string
-	ignore     *gitignorer
+	ignore     *workspace.Ignore
 	files      []File
 	skipped    []string // ignored directory relative paths, for reporting
 	dirCount   int      // directories entered (not skipped)
@@ -52,7 +75,7 @@ type walker struct {
 func Build(root string) ([]File, Stats) {
 	w := &walker{
 		root:   root,
-		ignore: newGitignorer(root),
+		ignore: workspace.NewIgnore(root),
 	}
 	w.walk()
 
@@ -83,7 +106,7 @@ func (w *walker) walk() {
 		rel = filepath.ToSlash(rel)
 
 		if d.IsDir() {
-			if w.shouldSkipDir(rel) {
+			if w.ignore.SkipDir(rel) {
 				w.skipped = append(w.skipped, rel)
 				return fs.SkipDir
 			}
@@ -96,20 +119,6 @@ func (w *walker) walk() {
 	})
 }
 
-// shouldSkipDir decides whether a directory is excluded from the walk.
-// Default ignored directories always win; otherwise .gitignore rules are
-// consulted.
-func (w *walker) shouldSkipDir(rel string) bool {
-	base := filepath.Base(rel)
-	if defaultIgnoreDirs[base] {
-		return true
-	}
-	if defaultIgnoreNames[base] { // a directory sharing a lockfile name is suspicious, skip it
-		return true
-	}
-	return w.ignore.ignored(rel, true)
-}
-
 // indexFile records one file when it is not ignored and the index is not
 // full. Content is read under a bounded size and binary check.
 func (w *walker) indexFile(abs, rel string, d fs.DirEntry) {
@@ -118,10 +127,7 @@ func (w *walker) indexFile(abs, rel string, d fs.DirEntry) {
 		return
 	}
 
-	if defaultIgnoreNames[filepath.Base(rel)] {
-		return
-	}
-	if w.ignore.ignored(rel, false) {
+	if w.ignore.SkipFile(rel) {
 		return
 	}
 

@@ -35,13 +35,43 @@ Ignored directories are deterministic and version-control-aware:
 
 - Always skipped: `.git`, `.hg`, `.svn`, `node_modules`, `vendor`,
   `target`, `dist`, `build`, `coverage`, `__pycache__`, `.venv`,
-  `.idea`, `.vscode`, `.next`, `.nuxt`, `.cache`, `.terraform`, `.tox`,
-  `bower_components`, `Pods`, `DerivedData`.
+  `venv`, `.idea`, `.vscode`, `.next`, `.nuxt`, `.cache`,
+  `.terraform`, `.tox`, `bower_components`, `Pods`, `DerivedData`.
 - A root `.gitignore` is honored, including basic negation (`!`) and
   directory-only (`dir/`) rules. Rules are normalized to forward slashes
   so the same `.gitignore` behaves identically on Linux and Windows.
+  A pattern with no slash matches the base name at any depth, so `*.log`
+  ignores `nested/debug.log` as well as `debug.log`.
 - Lockfiles and generated files (`go.sum`, `package-lock.json`, …) are
   skipped.
+
+These rules are defined once, in `workspace.Ignore`, and shared with
+workspace discovery. That is deliberate: discovery previously carried its
+own shorter hardcoded list, so it walked into gitignored directories and
+counted their extensions — enough for a Go repository with a populated
+`.venv` to be reported as Python, which then reached the model prompt.
+Inverting the dependency is not an option because the index already
+imports `workspace`.
+
+### Credential files
+
+Credential-bearing paths (`.env`, `.env.*`, `*.pem`, `*.key`, `*.p12`,
+`*.pfx`, `id_rsa`, `id_ed25519`, `authorized_keys`, `.ssh/`, `.aws/`,
+`.kube/`, `.docker/`, and similar — see `permissions.IsSensitivePath`)
+are **indexed** so the walk and search can reason about the whole tree,
+but they are never *surfaced*:
+
+| Surface                              | Behavior                                        |
+| ------------------------------------ | ----------------------------------------------- |
+| `Relevance` (the `/index` file ranking and the injected repository snapshot) | sensitive files are skipped entirely |
+| `retrieve.ForQuestion` (evidence injected into the prompt) | sensitive files are skipped entirely |
+| `ReadIndexedFile` (backs `read_repo_file`) | refuses the path with an error          |
+| `Search` / `search_repo`             | matches are found, then stripped from the output before the model sees them |
+
+Retrieval is the important case: its excerpts reach the model
+automatically, with no tool call and therefore no tool-boundary filter,
+so a question containing "API key" would otherwise quote `.env` verbatim
+into the prompt.
 
 ### Search
 

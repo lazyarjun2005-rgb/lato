@@ -142,8 +142,7 @@ func (f *connectFlow) handleKey(m *model, msg tea.KeyMsg) (bool, tea.Cmd) {
 			f.input = newInputModal(f.steps[0])
 			return true, textinput.Blink
 		}
-		f.input.Update(msg)
-		return true, nil
+		return true, f.input.Update(msg)
 	}
 
 	return false, nil
@@ -426,6 +425,7 @@ func newInputModal(step inputStep) *inputModal {
 		in.EchoCharacter = '•'
 	}
 	in.Focus()
+	styleTextInput(&in)
 	return &inputModal{title: step.title, prompt: step.prompt, input: in}
 }
 
@@ -443,19 +443,26 @@ func (im *inputModal) Value() string {
 func (im *inputModal) SetValue(s string) { im.input.SetValue(s) }
 
 // Update forwards key input to the underlying text field.
-func (im *inputModal) Update(msg tea.Msg) {
+func (im *inputModal) Update(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	im.input, cmd = im.input.Update(msg)
-	_ = cmd
+	return cmd
 }
 
 func (im *inputModal) view(width, height int) string {
+	styleTextInput(&im.input)
+	boxWidth := modalWidth(width, pickerWidth)
+	contentWidth := modalInnerWidth(boxWidth)
+	im.input.Width = contentWidth - 2
+	if im.input.Width < 1 {
+		im.input.Width = 1
+	}
 	var b strings.Builder
 	b.WriteString(pickerTitleStyle.Render(im.title))
 	b.WriteString("\n\n")
-	b.WriteString(inputBorderStyle.Width(pickerWidth - 2).Render(im.input.View()))
+	b.WriteString(inputBorderStyle.Width(contentWidth).Render(im.input.View()))
 	b.WriteString("\n\n")
 	b.WriteString(pickerHelpStyle.Render("enter confirm · esc cancel"))
-	box := pickerBorderStyle.Width(pickerWidth).Render(strings.TrimRight(b.String(), "\n"))
+	box := pickerBorderStyle.Width(boxWidth).Render(strings.TrimRight(b.String(), "\n"))
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 }

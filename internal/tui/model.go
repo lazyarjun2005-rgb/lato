@@ -39,6 +39,7 @@ const (
 // deliberately does not add.
 type model struct {
 	runtime  *runtime.Runtime
+	config   *config.Config
 	session  *session.Session
 	registry *command.Registry
 	stream   <-chan runtime.Event
@@ -64,6 +65,7 @@ type model struct {
 	// open. Like picker, it owns nothing beyond its own selection
 	// state.
 	selectPicker *selectPicker
+	modelPicker  *modelPicker
 
 	// flow is non-nil while the /connect (or /connect import) wizard is
 	// active. It owns its own pickers and inputs; the model only routes
@@ -85,7 +87,9 @@ type model struct {
 	// palette is the slash-command autocomplete layer (M16). It is a
 	// pure view of the command registry plus the current input prefix;
 	// accepting a suggestion routes through the normal dispatcher.
-	palette *slashPalette
+	palette   *slashPalette
+	themes    *themePicker
+	themeName string
 
 	// pendingStream holds a stream started by a command (/task resume);
 	// handleKey promotes it to the live stream after dispatch returns.
@@ -104,11 +108,13 @@ type model struct {
 // wires permission confirmations into this program; it is bound to the
 // tea.Program by Start.
 func newModel(cfg *config.Config, sess *session.Session, asker *uiAsker, r *runtime.Runtime) model {
+	applyTheme(cfg.Theme)
 	input := textinput.New()
 	input.Placeholder = "Ask Lato something…"
 	input.Prompt = "› "
 	input.CharLimit = 4000
 	input.Focus()
+	styleTextInput(&input)
 
 	spin := spinner.New()
 	spin.Spinner = spinner.Dot
@@ -138,11 +144,13 @@ func newModel(cfg *config.Config, sess *session.Session, asker *uiAsker, r *runt
 		spinner:      spin,
 		viewport:     viewport.New(0, 0),
 		runtime:      r,
+		config:       cfg,
 		entries:      entries,
 		session:      sess,
 		registry:     registry,
 		palette:      newSlashPalette(registry),
 		asker:        asker,
+		themeName:    cfg.Theme,
 	}
 }
 
@@ -203,11 +211,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.addFlow != nil {
 			return m.handleAddModelKey(msg)
 		}
+		if m.themes != nil {
+			return m.handleThemeKey(msg)
+		}
 		if m.picker != nil {
 			return m.handlePickerKey(msg)
 		}
 		if m.selectPicker != nil {
 			return m.handleSelectPickerKey(msg)
+		}
+		if m.modelPicker != nil {
+			return m.handleModelPickerKey(msg)
 		}
 		return m.handleKey(msg)
 
@@ -335,6 +349,15 @@ func (m *model) appendActivity(text string) {
 // handleKey processes keyboard input: global shortcuts first, then
 // message submission, then falls back to normal text-input editing.
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Bracketed paste is one input event. Forward it directly so pasted
+	// text cannot be mistaken for Enter, Ctrl+C, or another shortcut.
+	if msg.Paste {
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		m.syncPalette()
+		return m, cmd
+	}
+
 	// Copy shortcuts. Alt+C works everywhere; Ctrl+Shift+C is honored
 	// only when the terminal reports it as a distinct key (kitty-style
 	// enhanced keyboards) — on legacy terminals it never reaches the
@@ -525,6 +548,51 @@ func (m model) handleAddModelKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.addFlow = nil
 	}
 	return m, cmd
+}
+
+func (m model) handleThemeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.Type == tea.KeyEsc {
+		m.themes.cancel()
+		m.themes = nil
+		return m, nil
+	}
+	if msg.Type == tea.KeyEnter {
+		if err := m.themes.apply(); err != nil {
+			m.themes.cancel()
+			m.themes = nil
+			m.entries = append(m.entries, chatEntry{Role: roleError, Content: "theme save failed: " + err.Error()})
+			m.refreshTranscript()
+			return m, nil
+		}
+		m.themeName = m.themes.current
+		m.themes = nil
+		m.entries = append(m.entries, chatEntry{Role: roleSystem, Content: "✓ Theme applied: " + m.themeName})
+		m.refreshTranscript()
+		return m, nil
+	}
+	return m, m.themes.handleKey(msg)
+}
+
+func (m model) handleModelPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.Type == tea.KeyEsc {
+		m.modelPicker = nil
+		return m, nil
+	}
+	if msg.Type == tea.KeyEnter {
+		choice, ok := m.modelPicker.selected()
+		effortLevel := m.modelPicker.effort()
+		m.modelPicker = nil
+		if !ok {
+			return m, nil
+		}
+		if choice.providerID != m.providerName {
+			m.entries = append(m.entries, chatEntry{Role: roleError, Content: fmt.Sprintf("model %q belongs to %s; switch provider first with /provider", choice.model.ID, choice.providerName)})
+			m.refreshTranscript()
+			return m, nil
+		}
+		return m.applyModelChoice(choice.model.ID, effortLevel, true)
+	}
+	return m, m.modelPicker.handleKey(msg)
 }
 
 // handleAddModelResult finishes /model add: confirm in the transcript
@@ -809,6 +877,9 @@ func (m model) View() string {
 	if m.picker != nil {
 		return m.picker.view(m.width, m.height)
 	}
+	if m.themes != nil {
+		return m.themes.view(m.width, m.height)
+	}
 	if m.flow != nil {
 		if m.flow.selectPicker != nil {
 			return m.flow.selectPicker.view(m.width, m.height)
@@ -831,8 +902,14 @@ func (m model) View() string {
 			return m.addFlow.input.view(m.width, m.height)
 		}
 	}
+	if m.modelPicker != nil {
+		return m.modelPicker.view(m.width, m.height)
+	}
 	if m.selectPicker != nil {
 		return m.selectPicker.view(m.width, m.height)
+	}
+	if m.themes != nil {
+		return m.themes.view(m.width, m.height)
 	}
 
 	return lipgloss.JoinVertical(
@@ -866,6 +943,7 @@ func (m model) renderHeader() string {
 }
 
 func (m model) renderFooter() string {
+	styleTextInput(&m.input)
 	inputBox := inputBorderStyle.Width(m.width - 2).Render(m.input.View())
 
 	status := "enter send · esc quit"

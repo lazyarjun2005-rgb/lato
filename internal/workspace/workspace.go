@@ -38,14 +38,36 @@ type Info struct {
 	PackageManager string   // detected package manager, "" if none
 	ImportantFiles []string // present root files from the well-known list
 	Tree           []Node   // bounded directory tree below Root
+
+	// Unreadable counts entries the tree walk could not read. Discovery
+	// never fails, so a non-zero value means part of the tree was
+	// skipped (permissions, a broken symlink, a race with a delete).
+	Unreadable int
 }
 
 // wellKnownFiles are the root files Lato looks for and reports. Files
-// that do not exist are simply omitted.
+// that do not exist are simply omitted. The list covers three things an
+// agent needs to orient itself: build/dependency manifests, the entry
+// points and documentation that describe the project, and the
+// convention files that state its rules. Agent-instruction files
+// (CLAUDE.md, AGENTS.md) are included because they tell the model how
+// the project expects to be worked on.
 var wellKnownFiles = []string{
-	"README.md", "go.mod", "go.work", "package.json", "Cargo.toml",
-	"requirements.txt", "pyproject.toml", "Makefile", "Dockerfile",
-	"docker-compose.yml", "compose.yaml",
+	// Manifests and build entry points.
+	"go.mod", "go.work", "package.json", "Cargo.toml",
+	"pyproject.toml", "requirements.txt", "Makefile", "Justfile",
+	"Dockerfile", "docker-compose.yml", "compose.yaml",
+
+	// Documentation.
+	"README.md", "README", "CONTRIBUTING.md", "CHANGELOG.md",
+	"LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING",
+
+	// Agent instructions and tooling conventions.
+	"CLAUDE.md", "AGENTS.md", ".cursorrules",
+
+	// Editor, linter, and test conventions.
+	".editorconfig", ".golangci.yml", ".golangci.yaml",
+	"tsconfig.json", "setup.cfg", "pytest.ini",
 }
 
 // rootMarkers are files that, when present in a directory, mark it as a
@@ -90,7 +112,7 @@ func DiscoverDir(dir string) Info {
 		present[".sln"] = true
 	}
 
-	tree, extCount := walkTree(root)
+	tree, extCount, unreadable := walkTree(root)
 	gd := resolveGitDir(root)
 
 	var important []string
@@ -127,6 +149,7 @@ func DiscoverDir(dir string) Info {
 		PackageManager: detectPackageManager(lang, root, present),
 		ImportantFiles: important,
 		Tree:           tree,
+		Unreadable:     unreadable,
 	}
 }
 
@@ -239,13 +262,26 @@ func repoNameFromURL(url string) string {
 
 // walkTree lists the directory tree below root, bounded by maxTreeDepth
 // and maxTreeEntries, and counts source-file extensions for language
-// detection. Unreadable entries are skipped; discovery never fails.
-func walkTree(root string) ([]Node, map[string]int) {
+// detection. Paths excluded by Ignore (the default generated/dependency
+// directories and the project's .gitignore) are left out of both the
+// tree and the extension counts, so ignored output cannot skew language
+// detection. Unreadable entries are skipped and counted rather than
+// failing discovery; it also returns how many entries were unreadable.
+func walkTree(root string) ([]Node, map[string]int, int) {
 	var nodes []Node
 	ext := map[string]int{}
+	unreadable := 0
+	ignore := NewIgnore(root)
 
 	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			// Skip an unreadable directory instead of descending into it;
+			// an unreadable file is simply absent. Discovery never fails,
+			// so the entry is only counted for reporting.
+			unreadable++
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if path == root {
@@ -258,11 +294,16 @@ func walkTree(root string) ([]Node, map[string]int) {
 		rel = filepath.ToSlash(rel)
 
 		if d.IsDir() {
-			if shouldSkipDir(d.Name()) {
+			if ignore.SkipDir(rel) {
 				return filepath.SkipDir
 			}
-		} else if e := filepath.Ext(d.Name()); e != "" {
-			ext[strings.ToLower(e)]++
+		} else {
+			if ignore.SkipFile(rel) {
+				return nil
+			}
+			if e := filepath.Ext(d.Name()); e != "" {
+				ext[strings.ToLower(e)]++
+			}
 		}
 
 		if depth := strings.Count(rel, "/"); depth > maxTreeDepth {
@@ -285,18 +326,7 @@ func walkTree(root string) ([]Node, map[string]int) {
 		}
 		return nodes[i].Path < nodes[j].Path
 	})
-	return nodes, ext
-}
-
-// shouldSkipDir reports whether a directory is a version-control or
-// build-artifact directory that should not appear in the tree.
-func shouldSkipDir(name string) bool {
-	switch name {
-	case ".git", ".hg", ".svn", "node_modules", "vendor", "target",
-		"dist", "build", ".idea", ".vscode", "__pycache__", ".next", ".cache":
-		return true
-	}
-	return false
+	return nodes, ext, unreadable
 }
 
 // osName maps the Go runtime GOOS to a friendly display name.
@@ -336,6 +366,11 @@ func (i Info) Summary() string {
 			val = "-"
 		}
 		fmt.Fprintf(&b, "  %-16s %s\n", r[0], val)
+	}
+	// Only surfaced when something was actually skipped, so a fully
+	// readable workspace prints exactly as it did before.
+	if i.Unreadable > 0 {
+		fmt.Fprintf(&b, "  %-16s %d\n", "Unreadable", i.Unreadable)
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
