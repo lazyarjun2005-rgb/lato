@@ -38,8 +38,8 @@ NVIDIA NIM, and OpenRouter. Hosted providers use your own API key
 
 ## Alternatives
 
-- Linux/macOS: `curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.0/scripts/install.sh | sh`
-- Windows PowerShell: `irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.0/scripts/install.ps1 | iex`
+- Linux/macOS: `curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.1/scripts/install.sh | sh`
+- Windows PowerShell: `irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.1/scripts/install.ps1 | iex`
 
 ## License
 

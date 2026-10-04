@@ -13,7 +13,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$Version = 'v1.2.0'
+$Version = 'v1.2.1'
 $Repo = 'lazyarjun2005-rgb/lato'
 $BaseUrl = "https://github.com/$Repo/releases/download/$Version"
 $ChecksumsUrl = "$BaseUrl/checksums.txt"
