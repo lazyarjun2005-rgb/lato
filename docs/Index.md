@@ -41,13 +41,13 @@ rights.
 Prebuilt installer (Linux/macOS):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.1.0/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.0/scripts/install.sh | sh
 ```
 
 Prebuilt installer (Windows PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.1.0/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.0/scripts/install.ps1 | iex
 ```
 
 npm:
@@ -57,7 +57,7 @@ npm install -g lato-cli@1.0.9
 ```
 
 The installers download the binary for your platform from the
-[v1.1.0 release](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.1.0),
+[v1.2.0 release](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.2.0),
 verify its SHA-256 checksum, and place it on your PATH (Linux/macOS:
 `~/.local/bin/lato`, Windows: `%LOCALAPPDATA%\Programs\Lato\lato.exe`).
 Verify with `lato doctor`.

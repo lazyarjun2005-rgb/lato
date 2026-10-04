@@ -15,7 +15,7 @@
 
 set -eu
 
-VERSION="v1.1.0"
+VERSION="v1.2.0"
 REPO="lazyarjun2005-rgb/lato"
 BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
 CHECKSUMS_URL="${BASE_URL}/checksums.txt"
