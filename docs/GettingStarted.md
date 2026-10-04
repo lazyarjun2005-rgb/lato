@@ -27,17 +27,17 @@ binary.
 Linux/macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.1.0/scripts/install.sh | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.1.0/scripts/install.ps1 | iex
 ```
 
 The installer downloads the binary for your platform from the
-[v1.0.9 release](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.0.9),
+[v1.1.0 release](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.1.0),
 verifies its SHA-256 checksum, and installs it per-user:
 
 - Linux/macOS: `~/.local/bin/lato`
@@ -49,7 +49,7 @@ line to add — it never edits your shell files.
 Verify:
 
 ```bash
-lato --version   # lato v1.0.9
+lato --version   # lato v1.1.0
 lato doctor
 ```
 

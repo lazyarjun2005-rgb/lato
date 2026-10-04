@@ -22,7 +22,7 @@ Lato is under active development. Features and interfaces can change.
 ## Linux / macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.1.0/scripts/install.sh | sh
 ```
 
 The installer downloads the prebuilt binary for your platform (amd64 or
@@ -34,7 +34,7 @@ installer prints the exact line to add.
 ## Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.0.9/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.1.0/scripts/install.ps1 | iex
 ```
 
 The installer detects amd64 or arm64, downloads the matching `lato.exe`
@@ -75,7 +75,7 @@ To install into your Go bin directory: `go install .`
 Verify any installation:
 
 ```bash
-lato --version   # lato v1.0.9
+lato --version   # lato v1.1.0
 lato doctor      # environment check
 ```
 
