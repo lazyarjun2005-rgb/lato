@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="Lato, your local AI coding companion. Terminal-native AI coding assistant written in Go. Current release v1.2.1.">
+  <title>Lato — your local AI coding companion</title>
+
+  <rect width="1200" height="300" fill="#0A0B10"/>
+
+  <g stroke="#14161F" stroke-width="1">
+    <line x1="0" y1="60" x2="1200" y2="60"/>
+    <line x1="0" y1="240" x2="1200" y2="240"/>
+    <line x1="120" y1="0" x2="120" y2="300"/>
+    <line x1="1080" y1="0" x2="1080" y2="300"/>
+  </g>
+
+  <rect x="0" y="0" width="1200" height="4" fill="#0000FF"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace">
+    <text x="80" y="146" fill="#0000FF" font-size="80" font-weight="700" letter-spacing="20">LATO</text>
+    <rect x="84" y="168" width="132" height="4" fill="#0000FF"/>
+    <text x="80" y="222" fill="#EAEAEA" font-size="26" letter-spacing="0.5">your local AI coding companion</text>
+
+    <g fill="#7A7A7A" font-size="19" letter-spacing="0.5">
+      <text x="800" y="120">current release</text>
+      <text x="800" y="146" fill="#EAEAEA" font-size="24">v1.2.1</text>
+      <text x="800" y="196">47 themes &#183; 6 providers</text>
+      <text x="800" y="222">6 platform binaries &#183; go</text>
+    </g>
+  </g>
+</svg>
