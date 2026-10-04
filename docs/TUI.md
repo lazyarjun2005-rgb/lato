@@ -102,6 +102,11 @@ Enter to persist and apply the highlighted theme, or Esc to restore the theme
 that was active when the picker opened. Search text and previews are never
 persisted.
 
+Available variants include `catppuccin-mocha`, `catppuccin-latte`,
+`ayu-mirage`, `ayu-light`, `tokyonight-storm`, `tokyonight-light`,
+`rosepine-moon`, `rosepine-dawn`, `gruvbox-light`, `nord-light`,
+`solarized-light`, and `github-light`.
+
 The picker currently uses keyboard navigation. Chat intentionally keeps mouse
 reporting disabled so native terminal text selection is preserved; Bubble Tea's
 startup-only mouse mode cannot safely be scoped to this modal without regressing

@@ -605,6 +605,15 @@ func (m *model) openModelPickerFor(provider string) {
 		m.Println("⚠ %v", err)
 		return
 	}
+	if len(models) == 1 {
+		if err := m.SetModel(models[0].ID); err != nil {
+			m.Println("⚠ %v", err)
+			return
+		}
+		if len(m.runtime.Connections()) <= 1 {
+			return
+		}
+	}
 
 	groups, ok := m.buildModelGroups(provider, models)
 	if !ok {

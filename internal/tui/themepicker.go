@@ -165,7 +165,7 @@ func (p *themePicker) cancel() { applyTheme(p.previous) }
 
 func (p *themePicker) view(width, height int) string {
 	rows := p.visibleRows(height)
-	p.ensureVisible(height)
+	p.ensureVisible(rows)
 	var b strings.Builder
 	b.WriteString(pickerTitleStyle.Render("Themes"))
 	b.WriteString("\n\n")
