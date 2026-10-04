@@ -449,12 +449,18 @@ func (im *inputModal) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (im *inputModal) view(width, height int) string {
+	boxWidth := modalWidth(width, pickerWidth)
+	contentWidth := modalInnerWidth(boxWidth)
+	im.input.Width = contentWidth - 2
+	if im.input.Width < 1 {
+		im.input.Width = 1
+	}
 	var b strings.Builder
 	b.WriteString(pickerTitleStyle.Render(im.title))
 	b.WriteString("\n\n")
-	b.WriteString(inputBorderStyle.Width(pickerWidth - 2).Render(im.input.View()))
+	b.WriteString(inputBorderStyle.Width(contentWidth).Render(im.input.View()))
 	b.WriteString("\n\n")
 	b.WriteString(pickerHelpStyle.Render("enter confirm · esc cancel"))
-	box := pickerBorderStyle.Width(pickerWidth).Render(strings.TrimRight(b.String(), "\n"))
+	box := pickerBorderStyle.Width(boxWidth).Render(strings.TrimRight(b.String(), "\n"))
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 }

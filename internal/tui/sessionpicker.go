@@ -64,27 +64,29 @@ func (p *sessionPicker) selected() session.Session {
 
 // view renders the picker as a centered modal over a width x height area.
 func (p *sessionPicker) view(width, height int) string {
+	boxWidth := modalWidth(width, pickerWidth)
+	contentWidth := modalInnerWidth(boxWidth)
 	var b strings.Builder
 
 	b.WriteString(pickerTitleStyle.Render("Sessions"))
 	b.WriteString("\n\n")
 
 	for i, sess := range p.sessions {
-		b.WriteString(p.renderRow(i, sess))
+		b.WriteString(p.renderRow(i, sess, contentWidth))
 		b.WriteString("\n")
 	}
 
 	b.WriteString("\n")
 	b.WriteString(pickerHelpStyle.Render("↑/↓ select · enter switch · esc/q close"))
 
-	box := pickerBorderStyle.Width(pickerWidth).Render(strings.TrimRight(b.String(), "\n"))
+	box := pickerBorderStyle.Width(boxWidth).Render(strings.TrimRight(b.String(), "\n"))
 
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 }
 
 // renderRow formats a single session row: a selection cursor, an active
 // marker, the preview title, the shortened ID, and the last-updated time.
-func (p *sessionPicker) renderRow(i int, sess session.Session) string {
+func (p *sessionPicker) renderRow(i int, sess session.Session, contentWidth int) string {
 	cursor := "  "
 	if i == p.cursor {
 		cursor = "› "
@@ -110,7 +112,7 @@ func (p *sessionPicker) renderRow(i int, sess session.Session) string {
 	)
 
 	if i == p.cursor {
-		return pickerSelectedStyle.Width(pickerWidth - 4).Render(line)
+		return pickerSelectedStyle.Width(contentWidth).Render(trimModalText(line, contentWidth))
 	}
-	return pickerMetaStyle.Width(pickerWidth - 4).Render(line)
+	return pickerMetaStyle.Width(contentWidth).Render(trimModalText(line, contentWidth))
 }

@@ -115,6 +115,8 @@ func (m model) handlePermKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // style. Everything shown was redacted by the classifier before it got
 // here, so credential-shaped command content can never appear.
 func (p *permPrompt) view(width, height int) string {
+	boxWidth := modalWidth(width, pickerWidth)
+	contentWidth := modalInnerWidth(boxWidth)
 	var b strings.Builder
 	b.WriteString(pickerTitleStyle.Render("Permission required"))
 	b.WriteString("\n\n")
@@ -124,19 +126,19 @@ func (p *permPrompt) view(width, height int) string {
 		b.WriteString(pickerMetaStyle.Render(classLine))
 		b.WriteString("\n")
 	}
-	b.WriteString(pickerSelectedStyle.Width(pickerWidth - 4).Render(
-		wrapText("Action:\n  "+p.req.Summary, pickerWidth-4)))
+	b.WriteString(pickerSelectedStyle.Width(contentWidth).Render(
+		wrapText("Action:\n  "+p.req.Summary, contentWidth)))
 	if strings.TrimSpace(p.req.Reason) != "" && p.req.Reason != p.req.Summary {
 		b.WriteString("\n")
-		b.WriteString(pickerMetaStyle.Width(pickerWidth - 4).Render(
-			wrapText("Reason:\n  "+p.req.Reason, pickerWidth-4)))
+		b.WriteString(pickerMetaStyle.Width(contentWidth).Render(
+			wrapText("Reason:\n  "+p.req.Reason, contentWidth)))
 	}
 
 	b.WriteString("\n\n")
 	b.WriteString("[1] Allow once   [2] Allow for task   [3] Deny\n")
 	b.WriteString(pickerHelpStyle.Render("1/y allow once · 2/t allow for task · 3/n/esc deny"))
 
-	box := pickerBorderStyle.Width(pickerWidth).Render(strings.TrimRight(b.String(), "\n"))
+	box := pickerBorderStyle.Width(boxWidth).Render(strings.TrimRight(b.String(), "\n"))
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 }
 

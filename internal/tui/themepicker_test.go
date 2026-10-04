@@ -66,7 +66,7 @@ func TestThemePickerEmptyResultsAreSafe(t *testing.T) {
 	if len(p.matches) != 0 || p.selected() != "" {
 		t.Fatalf("empty search state = matches %v selected %q", p.matches, p.selected())
 	}
-	if got := p.view(20, 5); !strings.Contains(got, "No themes match") {
+	if got := p.view(60, 12); !strings.Contains(got, "No themes match") {
 		t.Fatalf("empty view = %q", got)
 	}
 	if cmd := p.handleKey(tea.KeyMsg{Type: tea.KeyDown}); cmd != nil {

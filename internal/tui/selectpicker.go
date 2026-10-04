@@ -294,6 +294,8 @@ func (p *selectPicker) view(width, height int) string {
 	rows := p.visibleRows(height)
 	p.pageSize = rows
 	p.ensureVisible(rows)
+	boxWidth := modalWidth(width, pickerWidth)
+	contentWidth := modalInnerWidth(boxWidth)
 
 	var b strings.Builder
 
@@ -305,7 +307,7 @@ func (p *selectPicker) view(width, height int) string {
 		end = len(p.options)
 	}
 	for i := p.offset; i < end; i++ {
-		b.WriteString(p.renderRow(i, p.options[i]))
+		b.WriteString(p.renderRow(i, p.options[i], contentWidth))
 		b.WriteString("\n")
 	}
 
@@ -324,7 +326,7 @@ func (p *selectPicker) view(width, height int) string {
 	}
 	b.WriteString(pickerHelpStyle.Render(help))
 
-	box := pickerBorderStyle.Width(pickerWidth).Render(strings.TrimRight(b.String(), "\n"))
+	box := pickerBorderStyle.Width(boxWidth).Render(strings.TrimRight(b.String(), "\n"))
 
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 }
@@ -332,7 +334,7 @@ func (p *selectPicker) view(width, height int) string {
 // renderRow formats a single option row: a selection cursor, the
 // friendly label, and a checkmark if it's the active choice. Header
 // rows render as section titles without a cursor.
-func (p *selectPicker) renderRow(i int, opt selectOption) string {
+func (p *selectPicker) renderRow(i int, opt selectOption, contentWidth int) string {
 	if opt.Header {
 		return pickerTitleStyle.Render(opt.Label)
 	}
@@ -348,7 +350,7 @@ func (p *selectPicker) renderRow(i int, opt selectOption) string {
 	}
 
 	if i == p.cursor {
-		return pickerSelectedStyle.Width(pickerWidth - 4).Render(line)
+		return pickerSelectedStyle.Width(contentWidth).Render(trimModalText(line, contentWidth))
 	}
-	return pickerMetaStyle.Width(pickerWidth - 4).Render(line)
+	return pickerMetaStyle.Width(contentWidth).Render(trimModalText(line, contentWidth))
 }

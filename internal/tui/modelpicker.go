@@ -196,10 +196,16 @@ func (p *modelPicker) handleKey(msg tea.KeyMsg) tea.Cmd {
 func (p *modelPicker) view(width, height int) string {
 	rows := p.visibleRows(height)
 	p.ensureVisible(rows)
+	boxWidth := modalWidth(width, pickerWidth)
+	contentWidth := modalInnerWidth(boxWidth)
+	p.input.Width = contentWidth - 2
+	if p.input.Width < 1 {
+		p.input.Width = 1
+	}
 	var b strings.Builder
 	b.WriteString(pickerTitleStyle.Render("Models"))
 	b.WriteString("\n\n")
-	b.WriteString(inputBorderStyle.Width(pickerWidth - 4).Render(p.input.View()))
+	b.WriteString(inputBorderStyle.Width(contentWidth).Render(p.input.View()))
 	b.WriteString("\n\n")
 	if len(p.matches) == 0 {
 		b.WriteString(pickerMetaStyle.Render("No models match your search."))
@@ -223,7 +229,7 @@ func (p *modelPicker) view(width, height int) string {
 			if i == p.cursor {
 				style = pickerSelectedStyle
 			}
-			b.WriteString(style.Width(pickerWidth - 4).Render(line))
+			b.WriteString(style.Width(contentWidth).Render(trimModalText(line, contentWidth)))
 			b.WriteString("\n")
 		}
 	}
@@ -244,7 +250,7 @@ func (p *modelPicker) view(width, height int) string {
 	}
 	b.WriteString("\n\n")
 	b.WriteString(pickerHelpStyle.Render("↑/↓ navigate · type to search · enter apply · esc cancel"))
-	box := pickerBorderStyle.Width(pickerWidth).Render(strings.TrimRight(b.String(), "\n"))
+	box := pickerBorderStyle.Width(boxWidth).Render(strings.TrimRight(b.String(), "\n"))
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 }
 

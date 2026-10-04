@@ -166,10 +166,16 @@ func (p *themePicker) cancel() { applyTheme(p.previous) }
 func (p *themePicker) view(width, height int) string {
 	rows := p.visibleRows(height)
 	p.ensureVisible(rows)
+	boxWidth := modalWidth(width, themePickerWidth)
+	contentWidth := modalInnerWidth(boxWidth)
+	p.input.Width = contentWidth - 2
+	if p.input.Width < 1 {
+		p.input.Width = 1
+	}
 	var b strings.Builder
 	b.WriteString(pickerTitleStyle.Render("Themes"))
 	b.WriteString("\n\n")
-	b.WriteString(inputBorderStyle.Width(themePickerWidth - 4).Render(p.input.View()))
+	b.WriteString(inputBorderStyle.Width(contentWidth).Render(p.input.View()))
 	b.WriteString("\n\n")
 	if len(p.matches) == 0 {
 		b.WriteString(pickerMetaStyle.Render("No themes match your search."))
@@ -190,9 +196,9 @@ func (p *themePicker) view(width, height int) string {
 			}
 			line := prefix + swatch(name) + " " + name + marker
 			if i == p.cursor {
-				b.WriteString(pickerSelectedStyle.Width(themePickerWidth - 4).Render(line))
+				b.WriteString(pickerSelectedStyle.Width(contentWidth).Render(trimModalText(line, contentWidth)))
 			} else {
-				b.WriteString(pickerMetaStyle.Width(themePickerWidth - 4).Render(line))
+				b.WriteString(pickerMetaStyle.Width(contentWidth).Render(trimModalText(line, contentWidth)))
 			}
 			b.WriteString("\n")
 		}
@@ -201,7 +207,7 @@ func (p *themePicker) view(width, height int) string {
 	b.WriteString(previewLine(p.preview))
 	b.WriteString("\n\n")
 	b.WriteString(pickerHelpStyle.Render("↑/↓ navigate · type to search · enter apply · esc cancel"))
-	box := pickerBorderStyle.Width(themePickerWidth).Render(strings.TrimRight(b.String(), "\n"))
+	box := pickerBorderStyle.Width(boxWidth).Render(strings.TrimRight(b.String(), "\n"))
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 }
 

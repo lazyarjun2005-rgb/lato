@@ -7,10 +7,50 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 
 	"lato/internal/theme"
 )
+
+const (
+	modalMaxWidth = 68
+	modalMinWidth = 28
+)
+
+// modalWidth keeps floating dialogs inside the terminal while retaining a
+// readable maximum width on large screens.
+func modalWidth(terminalWidth, preferred int) int {
+	if preferred <= 0 {
+		preferred = modalMaxWidth
+	}
+	if terminalWidth <= 0 {
+		return preferred
+	}
+	available := terminalWidth - 4
+	if available < 1 {
+		return 1
+	}
+	if available < modalMinWidth || preferred > available {
+		return available
+	}
+	return preferred
+}
+
+func modalInnerWidth(outer int) int {
+	if outer <= 6 {
+		return 1
+	}
+	return outer - 6
+}
+
+func trimModalText(text string, width int) string {
+	if width < 1 {
+		return ""
+	}
+	return lipgloss.NewStyle().MaxWidth(width).Render(strings.TrimSpace(text))
+}
 
 var (
 	colorAccent    = lipgloss.Color("#0000FF")
