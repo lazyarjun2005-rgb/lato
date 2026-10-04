@@ -726,3 +726,20 @@ func TestProviderRetryOnTransientError(t *testing.T) {
 		t.Fatal("delay capped at 10s")
 	}
 }
+
+// TestToolExecutionTimeoutConfig verifies the timeout configuration.
+func TestToolExecutionTimeoutConfig(t *testing.T) {
+	limits := config.Limits{ToolExecutionTimeout: 123}
+	if limits.ToolExecutionTimeout != 123 {
+		t.Fatalf("expected 123, got %d", limits.ToolExecutionTimeout)
+	}
+	// Verify EffectiveLimits normalizes zero/negative to default
+	cfg1 := &config.Config{Limits: config.Limits{ToolExecutionTimeout: 0}}
+	if cfg1.EffectiveLimits().ToolExecutionTimeout != 300 {
+		t.Fatalf("expected default 300, got %d", cfg1.EffectiveLimits().ToolExecutionTimeout)
+	}
+	cfg2 := &config.Config{Limits: config.Limits{ToolExecutionTimeout: -5}}
+	if cfg2.EffectiveLimits().ToolExecutionTimeout != 300 {
+		t.Fatalf("expected default 300 for negative, got %d", cfg2.EffectiveLimits().ToolExecutionTimeout)
+	}
+}

@@ -1,7 +1,7 @@
-// Execution limits (Phase 2B). The budget, consecutive-failure cap,
-// and provider retry count survive a bare test runtime that has no
-// *config.Config: they fall back to the package defaults so the loop is
-// always bounded, even outside a full configuration.
+// Execution limits (Phase 2B/2C). The budget, consecutive-failure cap,
+// provider retry count, and tool execution timeout survive a bare test
+// runtime that has no *config.Config: they fall back to the package
+// defaults so the loop is always bounded, even outside a full configuration.
 package runtime
 
 import (
@@ -16,6 +16,7 @@ func (r *Runtime) limits() config.Limits {
 			MaxToolCalls:           100,
 			MaxConsecutiveFailures: 5,
 			ProviderRetries:        3,
+			ToolExecutionTimeout:   300, // 5 minutes in seconds
 		}
 	}
 	return r.cfg.EffectiveLimits()

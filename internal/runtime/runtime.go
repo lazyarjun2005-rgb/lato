@@ -660,16 +660,26 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 				emit(Event{Type: EventError, Err: ctx.Err()})
 				return
 			case execErr != nil:
-				// Recoverable execution failure (M16 regression fix): a
-				// tool error is information for the model, not the end of
-				// the request. It becomes the tool's structured result so
-				// it joins the conversation and the SAME loop continues —
-				// the model can correct its arguments, choose another
-				// tool, or conclude. Still bounded by the effort profile's
-				// turn budget and the repetition guard below.
-				result = tools.Result{
-					IsError: true,
-					Content: fmt.Sprintf("tool %q failed: %v", tc.Name, execErr),
+				// Check for tool execution timeout (Phase 2C).
+				if errors.Is(execErr, context.DeadlineExceeded) {
+					result = tools.Result{
+						IsError: true,
+						Content: fmt.Sprintf("tool %q timed out after %v", tc.Name, time.Duration(limits.ToolExecutionTimeout)*time.Second),
+					}
+					// Do not count timeout as a consecutive failure — it's a
+					// resource limit, not a tool failure the model can fix.
+				} else {
+					// Recoverable execution failure (M16 regression fix): a
+					// tool error is information for the model, not the end of
+					// the request. It becomes the tool's structured result so
+					// it joins the conversation and the SAME loop continues —
+					// the model can correct its arguments, choose another
+					// tool, or conclude. Still bounded by the effort profile's
+					// turn budget and the repetition guard below.
+					result = tools.Result{
+						IsError: true,
+						Content: fmt.Sprintf("tool %q failed: %v", tc.Name, execErr),
+					}
 				}
 			}
 
@@ -683,15 +693,18 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 				Duration:   time.Since(started),
 			}
 
-			// Phase 2B: consecutive failure tracking.
-			if result.IsError {
+			// Phase 2B/2C: consecutive failure tracking.
+			// Timeouts are resource limits, not tool failures the model can fix.
+			// Don't count timeouts toward consecutive failure limit.
+			isTimeout := errors.Is(execErr, context.DeadlineExceeded)
+			if result.IsError && !isTimeout {
 				consecutiveFailures++
 				if consecutiveFailures >= limits.MaxConsecutiveFailures {
 					finishWithStatus(emit, withPausePreview(trk,
 						fmt.Sprintf("Consecutive tool failures limit reached (%d). Run terminated.", limits.MaxConsecutiveFailures)))
 					return
 				}
-			} else {
+			} else if !isTimeout {
 				consecutiveFailures = 0
 			}
 

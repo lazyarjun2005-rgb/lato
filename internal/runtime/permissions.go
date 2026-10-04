@@ -15,6 +15,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"lato/internal/permissions"
 	"lato/internal/providers"
@@ -146,7 +147,12 @@ func (r *Runtime) executeTool(ctx context.Context, call providers.ToolCall, trk 
 		return refusal(verdict, action), nil, false
 	}
 
-	res, err := r.manager.Execute(ctx, call.Name, call.Arguments)
+	// Phase 2C: enforce per-tool execution timeout as a safety net.
+	limits := r.limits()
+	toolCtx, cancel := context.WithTimeout(ctx, time.Duration(limits.ToolExecutionTimeout)*time.Second)
+	defer cancel()
+
+	res, err := r.manager.Execute(toolCtx, call.Name, call.Arguments)
 	return res, err, true
 }
 

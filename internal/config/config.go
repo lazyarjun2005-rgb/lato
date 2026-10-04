@@ -42,7 +42,7 @@ type Agent struct {
 
 // Limits bounds agent execution so a runaway request terminates. Every
 // value that is <= 0 is treated as "unset" and resolved to the safe
-// default below by (*Config).Limits(), never to "no limit".
+// default below by (*Config).EffectiveLimits(), never to "no limit".
 type Limits struct {
 	// MaxToolCalls caps the number of tool calls that may actually run
 	// (the budget is enforced before each call's manager.Execute).
@@ -53,12 +53,18 @@ type Limits struct {
 	// ProviderRetries is the number of extra provider attempts after the
 	// first one for transient, pre-content failures.
 	ProviderRetries int `yaml:"provider_retries,omitempty"`
+	// ToolExecutionTimeout is the maximum wall-clock time a single tool
+	// execution may run before being cancelled. Zero or negative selects
+	// the default. This is a safety net for tools that don't implement
+	// their own timeout; it is enforced by the runtime, not the tool itself.
+	ToolExecutionTimeout int `yaml:"tool_execution_timeout,omitempty"`
 }
 
 const (
 	defaultMaxToolCalls           = 100
 	defaultMaxConsecutiveFailures = 5
 	defaultProviderRetries        = 3
+	defaultToolExecutionTimeout   = 300 // 5 minutes in seconds
 )
 
 // EffectiveLimits returns the active execution limits, applying safe
@@ -77,6 +83,9 @@ func (c *Config) EffectiveLimits() Limits {
 	}
 	if l.ProviderRetries == 0 {
 		l.ProviderRetries = defaultProviderRetries
+	}
+	if l.ToolExecutionTimeout <= 0 {
+		l.ToolExecutionTimeout = defaultToolExecutionTimeout
 	}
 	return l
 }
