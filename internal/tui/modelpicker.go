@@ -38,6 +38,7 @@ func newSearchableModelPicker(groups []modelGroup, activeProvider, currentModel 
 	in.CharLimit = 120
 	in.Width = pickerWidth - 12
 	in.Focus()
+	styleTextInput(&in)
 
 	p := &modelPicker{input: in, currentModel: currentModel, current: currentEffort, activeProvider: activeProvider}
 	p.effortCursor = int(currentEffort) - 1
@@ -194,6 +195,7 @@ func (p *modelPicker) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (p *modelPicker) view(width, height int) string {
+	styleTextInput(&p.input)
 	rows := p.visibleRows(height)
 	p.ensureVisible(rows)
 	boxWidth := modalWidth(width, pickerWidth)

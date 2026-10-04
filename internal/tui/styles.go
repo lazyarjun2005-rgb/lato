@@ -9,6 +9,7 @@ package tui
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 
 	"lato/internal/theme"
@@ -53,17 +54,20 @@ func trimModalText(text string, width int) string {
 }
 
 var (
-	colorAccent    = lipgloss.Color("#0000FF")
-	colorAssistant = lipgloss.Color("#0000FF")
-	colorUser      = lipgloss.Color("#0000FF")
-	colorMuted     = lipgloss.Color("#7A7A7A")
-	colorError     = lipgloss.Color("#FF6B6B")
-	colorWarning   = lipgloss.Color("#FFD166")
-	colorSuccess   = lipgloss.Color("#65D1FF")
-	colorInfo      = lipgloss.Color("#8AB4F8")
-	colorBorder    = lipgloss.Color("#0000FF")
-	colorSelected  = lipgloss.Color("#000033")
-	colorText      = lipgloss.Color("#EAEAEA")
+	colorAccent       = lipgloss.Color("#0000FF")
+	colorAssistant    = lipgloss.Color("#0000FF")
+	colorUser         = lipgloss.Color("#0000FF")
+	colorMuted        = lipgloss.Color("#7A7A7A")
+	colorError        = lipgloss.Color("#FF6B6B")
+	colorWarning      = lipgloss.Color("#FFD166")
+	colorSuccess      = lipgloss.Color("#65D1FF")
+	colorInfo         = lipgloss.Color("#8AB4F8")
+	colorBorder       = lipgloss.Color("#0000FF")
+	colorSelected     = lipgloss.Color("#000033")
+	colorText         = lipgloss.Color("#EAEAEA")
+	colorPrompt       = lipgloss.Color("#0000FF")
+	colorPlaceholder  = lipgloss.Color("#7A7A7A")
+	markdownStyleName = "dark"
 )
 
 var (
@@ -167,6 +171,9 @@ func applyTheme(name string) {
 	colorBorder = lipgloss.Color(p.Border)
 	colorSelected = lipgloss.Color(p.SelectedBG)
 	colorText = lipgloss.Color(p.Text)
+	colorPrompt = lipgloss.Color(p.Prompt)
+	colorPlaceholder = lipgloss.Color(p.Muted)
+	markdownStyleName = markdownThemeStyle(p.Text)
 
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.SelectedFG)).Background(colorAccent).Padding(0, 1)
 	headerMetaStyle = lipgloss.NewStyle().Foreground(colorMuted)
@@ -189,4 +196,35 @@ func applyTheme(name string) {
 	paletteSelectedStyle = lipgloss.NewStyle().Bold(true).Foreground(colorText)
 	paletteMetaStyle = lipgloss.NewStyle().Foreground(colorText)
 	paletteDescStyle = lipgloss.NewStyle().Foreground(colorMuted)
+}
+
+func markdownThemeStyle(text string) string {
+	if len(text) != 7 || text[0] != '#' {
+		return "dark"
+	}
+	parse := func(s string) int {
+		v := 0
+		for _, r := range s {
+			v *= 16
+			switch {
+			case r >= '0' && r <= '9':
+				v += int(r - '0')
+			case r >= 'a' && r <= 'f':
+				v += int(r-'a') + 10
+			case r >= 'A' && r <= 'F':
+				v += int(r-'A') + 10
+			}
+		}
+		return v
+	}
+	// Dark text indicates a light terminal palette. This deliberately uses
+	// the semantic text role rather than theme names or a second theme list.
+	return map[bool]string{true: "light", false: "dark"}[0.2126*float64(parse(text[1:3]))+0.7152*float64(parse(text[3:5]))+0.0722*float64(parse(text[5:7])) < 145]
+}
+
+func styleTextInput(in *textinput.Model) {
+	in.PromptStyle = lipgloss.NewStyle().Foreground(colorPrompt)
+	in.TextStyle = lipgloss.NewStyle().Foreground(colorText)
+	in.PlaceholderStyle = lipgloss.NewStyle().Foreground(colorPlaceholder)
+	in.Cursor.TextStyle = lipgloss.NewStyle().Foreground(colorText)
 }

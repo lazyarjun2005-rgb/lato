@@ -3,6 +3,7 @@ package tui
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -46,5 +47,38 @@ func TestApplyingThemeUpdatesExistingStyles(t *testing.T) {
 	}
 	if got := string(userLabelStyle.GetForeground().(lipgloss.Color)); got != "#8BE9FD" {
 		t.Errorf("user style foreground = %q, want Dracula cyan", got)
+	}
+}
+
+func TestLightThemeUpdatesTextAndInputStyles(t *testing.T) {
+	applyTheme("catppuccin-latte")
+	defer applyTheme(theme.DefaultName)
+
+	if string(colorText) != "#4C4F69" {
+		t.Errorf("light text = %q, want dark Catppuccin Latte text", colorText)
+	}
+	if string(messageBodyStyle.GetForeground().(lipgloss.Color)) != "#4C4F69" {
+		t.Errorf("message style did not receive light palette text: %q", messageBodyStyle.GetForeground())
+	}
+	if markdownStyleName != "light" {
+		t.Errorf("markdown style = %q, want light", markdownStyleName)
+	}
+
+	in := textinput.New()
+	styleTextInput(&in)
+	if got := string(in.TextStyle.GetForeground().(lipgloss.Color)); got != "#4C4F69" {
+		t.Errorf("input text style = %q, want #4C4F69", got)
+	}
+	if got := string(in.PlaceholderStyle.GetForeground().(lipgloss.Color)); got != "#8C8FA1" {
+		t.Errorf("placeholder style = %q, want muted #8C8FA1", got)
+	}
+}
+
+func TestDarkThemeRestoresMarkdownAndTextStyles(t *testing.T) {
+	applyTheme("dracula")
+	defer applyTheme(theme.DefaultName)
+
+	if markdownStyleName != "dark" || string(colorText) != "#F8F8F2" {
+		t.Fatalf("dark theme styles = markdown %q text %q", markdownStyleName, colorText)
 	}
 }

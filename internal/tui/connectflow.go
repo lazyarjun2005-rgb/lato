@@ -425,6 +425,7 @@ func newInputModal(step inputStep) *inputModal {
 		in.EchoCharacter = '•'
 	}
 	in.Focus()
+	styleTextInput(&in)
 	return &inputModal{title: step.title, prompt: step.prompt, input: in}
 }
 
@@ -449,6 +450,7 @@ func (im *inputModal) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (im *inputModal) view(width, height int) string {
+	styleTextInput(&im.input)
 	boxWidth := modalWidth(width, pickerWidth)
 	contentWidth := modalInnerWidth(boxWidth)
 	im.input.Width = contentWidth - 2

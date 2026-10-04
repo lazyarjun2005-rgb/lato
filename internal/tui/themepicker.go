@@ -32,6 +32,7 @@ func newThemePicker(current string, save func(string) error) *themePicker {
 	in.CharLimit = 80
 	in.Width = themePickerWidth - 12
 	in.Focus()
+	styleTextInput(&in)
 	p := &themePicker{input: in, all: theme.Names(), previous: current, current: current, preview: current, save: save}
 	p.filter()
 	return p
@@ -164,6 +165,7 @@ func (p *themePicker) apply() error {
 func (p *themePicker) cancel() { applyTheme(p.previous) }
 
 func (p *themePicker) view(width, height int) string {
+	styleTextInput(&p.input)
 	rows := p.visibleRows(height)
 	p.ensureVisible(rows)
 	boxWidth := modalWidth(width, themePickerWidth)

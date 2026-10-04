@@ -114,6 +114,7 @@ func newModel(cfg *config.Config, sess *session.Session, asker *uiAsker, r *runt
 	input.Prompt = "› "
 	input.CharLimit = 4000
 	input.Focus()
+	styleTextInput(&input)
 
 	spin := spinner.New()
 	spin.Spinner = spinner.Dot
@@ -942,6 +943,7 @@ func (m model) renderHeader() string {
 }
 
 func (m model) renderFooter() string {
+	styleTextInput(&m.input)
 	inputBox := inputBorderStyle.Width(m.width - 2).Render(m.input.View())
 
 	status := "enter send · esc quit"
