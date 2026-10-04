@@ -9,11 +9,11 @@ package tui
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	colorAccent    = lipgloss.Color("#FF3B3B")
-	colorAssistant = lipgloss.Color("#FF3B3B")
+	colorAccent    = lipgloss.Color("#0000FF")
+	colorAssistant = lipgloss.Color("#0000FF")
 	colorMuted     = lipgloss.Color("#7A7A7A")
 	colorError     = lipgloss.Color("#FF6B6B")
-	colorBorder    = lipgloss.Color("#f8a7a7")
+	colorBorder    = lipgloss.Color("#0000FF")
 	colorText      = lipgloss.Color("#EAEAEA")
 )
 
@@ -78,7 +78,7 @@ var (
 	pickerSelectedStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(colorText).
-				Background(lipgloss.Color("#3A1414"))
+				Background(lipgloss.Color("#000033"))
 
 	pickerMetaStyle = lipgloss.NewStyle().
 			Foreground(colorMuted)
