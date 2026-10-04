@@ -3,7 +3,7 @@ package theme
 
 import "strings"
 
-const DefaultName = "electric-blue"
+const DefaultName = "lato"
 
 // Palette describes the semantic colors used by the TUI. Empty colors are
 // intentional: lipgloss leaves the terminal's normal foreground/background
@@ -25,7 +25,7 @@ type Palette struct {
 }
 
 var palettes = map[string]Palette{
-	"electric-blue":        {"#0000FF", "#0000FF", "#0000FF", "#0000FF", "#EAEAEA", "#000033", "#0000FF", "#7A7A7A", "#EAEAEA", "#65D1FF", "#FFD166", "#FF6B6B", "#8AB4F8"},
+	"lato":                 {"#0000FF", "#0000FF", "#0000FF", "#0000FF", "#EAEAEA", "#000033", "#0000FF", "#7A7A7A", "#EAEAEA", "#65D1FF", "#FFD166", "#FF6B6B", "#8AB4F8"},
 	"aura":                 {"#A277FF", "#A277FF", "#61FFCA", "#A277FF", "#F8F8F2", "#302A4C", "#A277FF", "#8B82A8", "#EDE7F6", "#61FFCA", "#FFCA85", "#FF6767", "#82E2FF"},
 	"ayu":                  {"#E6B450", "#95E6CB", "#F07178", "#E6B450", "#E6E1CF", "#3D412F", "#E6B450", "#626A73", "#E6E1CF", "#AAD94C", "#FFB454", "#F07178", "#59C2FF"},
 	"ayu-light":            {"#F8F9FA", "#5C6773", "#F07171", "#E6B450", "#5C6773", "#E7E8E9", "#E6B450", "#86919C", "#5C6773", "#86B300", "#F2AE49", "#F07171", "#55B4D4"},
@@ -55,23 +55,30 @@ var palettes = map[string]Palette{
 	"nord":                 {"#88C0D0", "#B48EAD", "#A3BE8C", "#88C0D0", "#ECEFF4", "#434C5E", "#88C0D0", "#81A1C1", "#D8DEE9", "#A3BE8C", "#EBCB8B", "#BF616A", "#5E81AC"},
 	"nord-light":           {"#5E81AC", "#B48EAD", "#A3BE8C", "#5E81AC", "#2E3440", "#E5E9F0", "#5E81AC", "#616E88", "#2E3440", "#A3BE8C", "#D08770", "#BF616A", "#81A1C1"},
 	"one-dark":             {"#61AFEF", "#C678DD", "#98C379", "#61AFEF", "#ABB2BF", "#3E4451", "#61AFEF", "#5C6370", "#ABB2BF", "#98C379", "#E5C07B", "#E06C75", "#56B6C2"},
-	"opencode":             {"#FF7A00", "#FF7A00", "#7DD3FC", "#FF7A00", "#F8FAFC", "#3B2415", "#FF7A00", "#94A3B8", "#E2E8F0", "#4ADE80", "#FACC15", "#FB7185", "#38BDF8"},
-	"orng":                 {"#FF8800", "#FFAA33", "#FFD166", "#FF8800", "#FFF7ED", "#572D12", "#FF8800", "#A8A29E", "#292524", "#84CC16", "#FACC15", "#EF4444", "#38BDF8"},
-	"osaka-jade":           {"#68D391", "#9F7AEA", "#81E6D9", "#68D391", "#E6FFFA", "#234E52", "#68D391", "#68A0A0", "#E6FFFA", "#9AE6B4", "#F6E05E", "#FC8181", "#63B3ED"},
-	"palenight":            {"#82AAFF", "#C792EA", "#89DDFF", "#82AAFF", "#A6ACCD", "#444267", "#82AAFF", "#676E95", "#A6ACCD", "#C3E88D", "#FFCB6B", "#F07178", "#89DDFF"},
-	"rosepine":             {"#C4A7E7", "#EBBCBA", "#9CCFD8", "#C4A7E7", "#E0DEF4", "#403D52", "#C4A7E7", "#6E6A86", "#E0DEF4", "#9CCFD8", "#F6C177", "#EB6F92", "#31748F"},
-	"rosepine-dawn":        {"#907AA9", "#D7827E", "#56949F", "#907AA9", "#575279", "#F2E9DE", "#907AA9", "#9893A5", "#575279", "#56949F", "#EA9D34", "#B4637A", "#286983"},
-	"rosepine-moon":        {"#C4A7E7", "#EABBB9", "#9CCFD8", "#C4A7E7", "#E0DEF4", "#393552", "#C4A7E7", "#817C9C", "#E0DEF4", "#9CCFD8", "#F6C177", "#EB6F92", "#3E8FB0"},
-	"solarized":            {"#268BD2", "#6C71C4", "#859900", "#268BD2", "#839496", "#073642", "#268BD2", "#586E75", "#839496", "#859900", "#B58900", "#DC322F", "#2AA198"},
-	"solarized-light":      {"#268BD2", "#6C71C4", "#859900", "#268BD2", "#073642", "#EEE8D5", "#268BD2", "#93A1A1", "#073642", "#859900", "#B58900", "#DC322F", "#2AA198"},
-	"synthwave84":          {"#FF7EDB", "#FF7EDB", "#72F1B8", "#FF7EDB", "#FFFFFF", "#34294F", "#FF7EDB", "#848BBD", "#FFFFFF", "#72F1B8", "#FEDE5D", "#FE4450", "#36F9F6"},
-	"system":               {"", "", "", "", "", "", "", "", "", "#00A000", "#A06000", "#C00000", "#0080A0"},
-	"tokyonight":           {"#7AA2F7", "#BB9AF7", "#9ECE6A", "#7AA2F7", "#C0CAF5", "#3B4261", "#7AA2F7", "#565F89", "#C0CAF5", "#9ECE6A", "#E0AF68", "#F7768E", "#7DCFFF"},
-	"tokyonight-light":     {"#2E7DE9", "#9854F1", "#587539", "#2E7DE9", "#3760BF", "#D5D6DB", "#2E7DE9", "#8990B3", "#3760BF", "#587539", "#8C6C3E", "#F52A65", "#007197"},
-	"tokyonight-storm":     {"#7AA2F7", "#BB9AF7", "#9ECE6A", "#7AA2F7", "#C0CAF5", "#414868", "#7AA2F7", "#565F89", "#C0CAF5", "#9ECE6A", "#E0AF68", "#F7768E", "#7DCFFF"},
-	"vercel":               {"#0070F3", "#7928CA", "#0070F3", "#EAEAEA", "#FFFFFF", "#EAEAEA", "#0070F3", "#666666", "#111111", "#0070F3", "#F5A623", "#E00", "#0070F3"},
-	"vesper":               {"#FFC799", "#A0A0A0", "#99FFE4", "#FFC799", "#FFF3E4", "#3B3530", "#FFC799", "#8C8279", "#FFF3E4", "#99FFE4", "#FFC799", "#FF8080", "#80C8FF"},
-	"zenburn":              {"#DFAF8F", "#DFAF8F", "#7F9F7F", "#DFAF8F", "#DCDCCC", "#4F4F4F", "#DFAF8F", "#7F807F", "#DCDCCC", "#7F9F7F", "#F0DFAF", "#CC9393", "#8CD0D3"},
+	// lato-orange is a Lato-adapted orange palette. The old opencode name
+	// had no verified upstream attribution and remains only as a migration alias.
+	"lato-orange":      {"#FF7A00", "#FF7A00", "#7DD3FC", "#FF7A00", "#F8FAFC", "#3B2415", "#FF7A00", "#94A3B8", "#E2E8F0", "#4ADE80", "#FACC15", "#FB7185", "#38BDF8"},
+	"orng":             {"#FF8800", "#FFAA33", "#FFD166", "#FF8800", "#FFF7ED", "#572D12", "#FF8800", "#A8A29E", "#292524", "#84CC16", "#FACC15", "#EF4444", "#38BDF8"},
+	"osaka-jade":       {"#68D391", "#9F7AEA", "#81E6D9", "#68D391", "#E6FFFA", "#234E52", "#68D391", "#68A0A0", "#E6FFFA", "#9AE6B4", "#F6E05E", "#FC8181", "#63B3ED"},
+	"palenight":        {"#82AAFF", "#C792EA", "#89DDFF", "#82AAFF", "#A6ACCD", "#444267", "#82AAFF", "#676E95", "#A6ACCD", "#C3E88D", "#FFCB6B", "#F07178", "#89DDFF"},
+	"rosepine":         {"#C4A7E7", "#EBBCBA", "#9CCFD8", "#C4A7E7", "#E0DEF4", "#403D52", "#C4A7E7", "#6E6A86", "#E0DEF4", "#9CCFD8", "#F6C177", "#EB6F92", "#31748F"},
+	"rosepine-dawn":    {"#907AA9", "#D7827E", "#56949F", "#907AA9", "#575279", "#F2E9DE", "#907AA9", "#9893A5", "#575279", "#56949F", "#EA9D34", "#B4637A", "#286983"},
+	"rosepine-moon":    {"#C4A7E7", "#EABBB9", "#9CCFD8", "#C4A7E7", "#E0DEF4", "#393552", "#C4A7E7", "#817C9C", "#E0DEF4", "#9CCFD8", "#F6C177", "#EB6F92", "#3E8FB0"},
+	"solarized":        {"#268BD2", "#6C71C4", "#859900", "#268BD2", "#839496", "#073642", "#268BD2", "#586E75", "#839496", "#859900", "#B58900", "#DC322F", "#2AA198"},
+	"solarized-light":  {"#268BD2", "#6C71C4", "#859900", "#268BD2", "#073642", "#EEE8D5", "#268BD2", "#93A1A1", "#073642", "#859900", "#B58900", "#DC322F", "#2AA198"},
+	"synthwave84":      {"#FF7EDB", "#FF7EDB", "#72F1B8", "#FF7EDB", "#FFFFFF", "#34294F", "#FF7EDB", "#848BBD", "#FFFFFF", "#72F1B8", "#FEDE5D", "#FE4450", "#36F9F6"},
+	"system":           {"", "", "", "", "", "", "", "", "", "#00A000", "#A06000", "#C00000", "#0080A0"},
+	"tokyonight":       {"#7AA2F7", "#BB9AF7", "#9ECE6A", "#7AA2F7", "#C0CAF5", "#3B4261", "#7AA2F7", "#565F89", "#C0CAF5", "#9ECE6A", "#E0AF68", "#F7768E", "#7DCFFF"},
+	"tokyonight-light": {"#2E7DE9", "#9854F1", "#587539", "#2E7DE9", "#3760BF", "#D5D6DB", "#2E7DE9", "#8990B3", "#3760BF", "#587539", "#8C6C3E", "#F52A65", "#007197"},
+	"tokyonight-storm": {"#7AA2F7", "#BB9AF7", "#9ECE6A", "#7AA2F7", "#C0CAF5", "#414868", "#7AA2F7", "#565F89", "#C0CAF5", "#9ECE6A", "#E0AF68", "#F7768E", "#7DCFFF"},
+	"vercel":           {"#0070F3", "#7928CA", "#0070F3", "#EAEAEA", "#FFFFFF", "#EAEAEA", "#0070F3", "#666666", "#111111", "#0070F3", "#F5A623", "#E00", "#0070F3"},
+	"vesper":           {"#FFC799", "#A0A0A0", "#99FFE4", "#FFC799", "#FFF3E4", "#3B3530", "#FFC799", "#8C8279", "#FFF3E4", "#99FFE4", "#FFC799", "#FF8080", "#80C8FF"},
+	"zenburn":          {"#DFAF8F", "#DFAF8F", "#7F9F7F", "#DFAF8F", "#DCDCCC", "#4F4F4F", "#DFAF8F", "#7F807F", "#DCDCCC", "#7F9F7F", "#F0DFAF", "#CC9393", "#8CD0D3"},
+}
+
+var aliases = map[string]string{
+	"electric-blue": "lato",
+	"opencode":      "lato-orange",
 }
 
 // Names returns all registered names in stable lexical order.
@@ -90,13 +97,20 @@ func Names() []string {
 
 // Lookup returns a copy of a named palette using case-insensitive matching.
 func Lookup(name string) (Palette, bool) {
-	p, ok := palettes[strings.ToLower(strings.TrimSpace(name))]
+	key := strings.ToLower(strings.TrimSpace(name))
+	if canonical, ok := aliases[key]; ok {
+		key = canonical
+	}
+	p, ok := palettes[key]
 	return p, ok
 }
 
 // Resolve returns the requested palette, falling back safely to the default.
 func Resolve(name string) (string, Palette) {
 	key := strings.ToLower(strings.TrimSpace(name))
+	if canonical, ok := aliases[key]; ok {
+		key = canonical
+	}
 	if p, ok := palettes[key]; ok {
 		return key, p
 	}

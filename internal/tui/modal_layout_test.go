@@ -30,7 +30,7 @@ func TestFloatingPickersRenderAtConstrainedSizes(t *testing.T) {
 		if strings.TrimSpace(modelView) == "" {
 			t.Errorf("model picker rendered empty at %dx%d", size.width, size.height)
 		}
-		themeView := newThemePicker("electric-blue", nil).view(size.width, size.height)
+		themeView := newThemePicker("lato", nil).view(size.width, size.height)
 		if strings.TrimSpace(themeView) == "" {
 			t.Errorf("theme picker rendered empty at %dx%d", size.width, size.height)
 		}

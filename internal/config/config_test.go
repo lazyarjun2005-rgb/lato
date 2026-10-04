@@ -91,8 +91,8 @@ func TestLoadCreatesDefaultConfigUnderPlatformDir(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(cfgDir, "config.yaml")); err != nil {
 		t.Fatalf("default config not created under %s: %v", cfgDir, err)
 	}
-	if cfg.Theme != "electric-blue" {
-		t.Fatalf("default theme = %q, want electric-blue", cfg.Theme)
+	if cfg.Theme != "lato" {
+		t.Fatalf("default theme = %q, want lato", cfg.Theme)
 	}
 }
 
@@ -109,8 +109,28 @@ func TestLoadLegacyConfigDefaultsTheme(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.Theme != "electric-blue" {
-		t.Fatalf("legacy theme = %q, want electric-blue", cfg.Theme)
+	if cfg.Theme != "lato" {
+		t.Fatalf("legacy theme = %q, want lato", cfg.Theme)
+	}
+}
+
+func TestLoadLegacyThemeAliasesCanonicalize(t *testing.T) {
+	for legacy, want := range map[string]string{"electric-blue": "lato", "opencode": "lato-orange"} {
+		dir := isolateConfig(t)
+		contents := "model:\n  provider: ollama\n  endpoint: http://localhost:11434\n  name: llama3\nagent:\n  name: default\ntheme: " + legacy + "\n"
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load(%q) error = %v", legacy, err)
+		}
+		if cfg.Theme != want {
+			t.Errorf("Load(%q).Theme = %q, want %q", legacy, cfg.Theme, want)
+		}
 	}
 }
 
@@ -127,8 +147,8 @@ func TestLoadInvalidThemeFallsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.Theme != "electric-blue" {
-		t.Fatalf("invalid theme = %q, want electric-blue", cfg.Theme)
+	if cfg.Theme != "lato" {
+		t.Fatalf("invalid theme = %q, want lato", cfg.Theme)
 	}
 }
 

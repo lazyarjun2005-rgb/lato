@@ -78,20 +78,22 @@ install — copied content never appears in error messages.
 
 ## Themes
 
-Lato's default theme is `electric-blue`, the palette shipped in v1.1.0. The
+Lato's default theme is `lato`, preserving the original electric-blue palette.
+The
 theme engine currently includes these stable names:
 
 `aura`, `ayu`, `carbonfox`, `catppuccin`, `catppuccin-frappe`,
-`catppuccin-macchiato`, `cobalt2`, `cursor`, `dracula`, `electric-blue`,
+`catppuccin-macchiato`, `cobalt2`, `cursor`, `dracula`, `lato`,
 `everforest`, `flexoki`, `github`, `gruvbox`, `kanagawa`, `lucent-orng`,
 `material`, `matrix`, `mercury`, `monokai`, `nightowl`, `nord`, `one-dark`,
-`opencode`, `orng`, `osaka-jade`, `palenight`, `rosepine`, `solarized`,
+`lato-orange`, `orng`, `osaka-jade`, `palenight`, `rosepine`, `solarized`,
 `synthwave84`, `system`, `tokyonight`, `vercel`, `vesper`, `zenburn`.
 
 Set the persisted preference in the user configuration file as
 `theme: dracula`. The file is stored at the same platform-specific
 `config.yaml` path described above. Names are case-insensitive; missing or
-unknown values safely use `electric-blue`. `system` leaves the primary TUI
+unknown values safely use `lato`. Legacy `electric-blue` and `opencode` values
+are migrated to `lato` and `lato-orange` respectively. `system` leaves the primary TUI
 colors to the terminal's normal defaults where supported.
 
 Use `/themes` to open the centered interactive theme picker. The search field

@@ -18,10 +18,20 @@ func TestLookupIsCaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestResolveUnknownUsesElectricBlue(t *testing.T) {
+func TestResolveUnknownUsesLato(t *testing.T) {
 	name, got := Resolve("does-not-exist")
 	if name != DefaultName || got.Primary != "#0000FF" {
-		t.Fatalf("Resolve unknown = %q, %+v", name, got)
+		t.Fatalf("Resolve unknown = %q, %+v, want lato blue", name, got)
+	}
+}
+
+func TestLegacyAliasesResolveToCanonicalThemes(t *testing.T) {
+	for legacy, want := range map[string]string{"electric-blue": "lato", "opencode": "lato-orange"} {
+		name, got := Resolve(legacy)
+		canonical, _ := Lookup(want)
+		if name != want || got != canonical {
+			t.Fatalf("Resolve(%q) = %q, %+v; want %q, %+v", legacy, name, got, want, canonical)
+		}
 	}
 }
 
