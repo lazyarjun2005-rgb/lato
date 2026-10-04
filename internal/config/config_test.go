@@ -91,6 +91,60 @@ func TestLoadCreatesDefaultConfigUnderPlatformDir(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(cfgDir, "config.yaml")); err != nil {
 		t.Fatalf("default config not created under %s: %v", cfgDir, err)
 	}
+	if cfg.Theme != "electric-blue" {
+		t.Fatalf("default theme = %q, want electric-blue", cfg.Theme)
+	}
+}
+
+func TestLoadLegacyConfigDefaultsTheme(t *testing.T) {
+	dir := isolateConfig(t)
+	contents := "model:\n  provider: ollama\n  endpoint: http://localhost:11434\n  name: llama3\nagent:\n  name: default\n"
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Theme != "electric-blue" {
+		t.Fatalf("legacy theme = %q, want electric-blue", cfg.Theme)
+	}
+}
+
+func TestLoadInvalidThemeFallsBack(t *testing.T) {
+	dir := isolateConfig(t)
+	contents := "model:\n  provider: ollama\n  endpoint: http://localhost:11434\n  name: llama3\nagent:\n  name: default\ntheme: no-such-theme\n"
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Theme != "electric-blue" {
+		t.Fatalf("invalid theme = %q, want electric-blue", cfg.Theme)
+	}
+}
+
+func TestThemePreferencePersistsAndReloads(t *testing.T) {
+	isolateConfig(t)
+	cfg := &Config{Model: Model{Provider: "ollama", Endpoint: "http://localhost:11434", Name: "llama3"}, Agent: Agent{Name: "default"}, Theme: "DrAcUlA"}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if loaded.Theme != "dracula" {
+		t.Fatalf("reloaded theme = %q, want dracula", loaded.Theme)
+	}
 }
 
 // TestDirMigratesLegacyHome verifies a pre-M14 ~/.lato home is copied

@@ -19,6 +19,7 @@ import (
 	"lato/internal/effort"
 	"lato/internal/persist"
 	"lato/internal/providers"
+	"lato/internal/theme"
 )
 
 // legacyHomeName is the pre-M14 configuration directory directly under
@@ -122,6 +123,7 @@ type Config struct {
 	Model  Model  `yaml:"model"`
 	Agent  Agent  `yaml:"agent"`
 	Limits Limits `yaml:"limits,omitempty"`
+	Theme  string `yaml:"theme,omitempty"`
 }
 
 const defaultConfigTemplate = `model:
@@ -334,6 +336,7 @@ func Load() (*Config, error) {
 		}
 		cfg.Model.Effort = level.String()
 	}
+	cfg.Theme, _ = theme.Resolve(cfg.Theme)
 
 	// Source the API key from the environment, using the environment
 	// variable declared by the active provider's registry entry. Keys

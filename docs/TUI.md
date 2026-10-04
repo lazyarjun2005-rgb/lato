@@ -76,6 +76,27 @@ Linux clipboard requirements: one of `wl-copy` (Wayland), `xclip`, or
 If no mechanism is available, Lato shows an error naming what to
 install — copied content never appears in error messages.
 
+## Themes
+
+Lato's default theme is `electric-blue`, the palette shipped in v1.1.0. The
+theme engine currently includes these stable names:
+
+`aura`, `ayu`, `carbonfox`, `catppuccin`, `catppuccin-frappe`,
+`catppuccin-macchiato`, `cobalt2`, `cursor`, `dracula`, `electric-blue`,
+`everforest`, `flexoki`, `github`, `gruvbox`, `kanagawa`, `lucent-orng`,
+`material`, `matrix`, `mercury`, `monokai`, `nightowl`, `nord`, `one-dark`,
+`opencode`, `orng`, `osaka-jade`, `palenight`, `rosepine`, `solarized`,
+`synthwave84`, `system`, `tokyonight`, `vercel`, `vesper`, `zenburn`.
+
+Set the persisted preference in the user configuration file as
+`theme: dracula`. The file is stored at the same platform-specific
+`config.yaml` path described above. Names are case-insensitive; missing or
+unknown values safely use `electric-blue`. `system` leaves the primary TUI
+colors to the terminal's normal defaults where supported.
+
+Interactive `/themes` selection is planned for Phase 3. This phase provides
+the registry, semantic palette, and persisted configuration foundation only.
+
 On Windows, paste an API key into `/connect` with the terminal's paste command
 (usually `Ctrl+V` or `Ctrl+Shift+V`). Bracketed-paste terminals deliver the
 whole value as one event, so punctuation and embedded newlines are not treated

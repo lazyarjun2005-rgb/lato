@@ -1,6 +1,12 @@
 package tui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
+import "lato/internal/theme"
 
 func TestPrimaryPaletteUsesElectricBlue(t *testing.T) {
 	const want = "#0000FF"
@@ -25,5 +31,20 @@ func TestSemanticPaletteRemainsDistinct(t *testing.T) {
 	}
 	if string(colorText) != "#EAEAEA" {
 		t.Errorf("text color = %q, want #EAEAEA", colorText)
+	}
+}
+
+func TestApplyingThemeUpdatesExistingStyles(t *testing.T) {
+	applyTheme("dracula")
+	defer applyTheme(theme.DefaultName)
+
+	if string(colorAccent) != "#BD93F9" {
+		t.Errorf("accent after theme = %q, want Dracula purple", colorAccent)
+	}
+	if string(colorError) != "#FF5555" || string(colorSuccess) != "#50FA7B" {
+		t.Errorf("semantic colors not applied: error=%q success=%q", colorError, colorSuccess)
+	}
+	if got := string(userLabelStyle.GetForeground().(lipgloss.Color)); got != "#8BE9FD" {
+		t.Errorf("user style foreground = %q, want Dracula cyan", got)
 	}
 }

@@ -104,6 +104,7 @@ type model struct {
 // wires permission confirmations into this program; it is bound to the
 // tea.Program by Start.
 func newModel(cfg *config.Config, sess *session.Session, asker *uiAsker, r *runtime.Runtime) model {
+	applyTheme(cfg.Theme)
 	input := textinput.New()
 	input.Placeholder = "Ask Lato something…"
 	input.Prompt = "› "
