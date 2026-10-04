@@ -142,8 +142,7 @@ func (f *connectFlow) handleKey(m *model, msg tea.KeyMsg) (bool, tea.Cmd) {
 			f.input = newInputModal(f.steps[0])
 			return true, textinput.Blink
 		}
-		f.input.Update(msg)
-		return true, nil
+		return true, f.input.Update(msg)
 	}
 
 	return false, nil
@@ -443,10 +442,10 @@ func (im *inputModal) Value() string {
 func (im *inputModal) SetValue(s string) { im.input.SetValue(s) }
 
 // Update forwards key input to the underlying text field.
-func (im *inputModal) Update(msg tea.Msg) {
+func (im *inputModal) Update(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	im.input, cmd = im.input.Update(msg)
-	_ = cmd
+	return cmd
 }
 
 func (im *inputModal) view(width, height int) string {

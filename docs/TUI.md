@@ -16,7 +16,8 @@ func Start(sess *session.Session) error
 
 1. Load configuration for header labels.
 2. Create a Bubble Tea program with the chat model.
-3. Enable the alternate screen and mouse cell motion.
+3. Enable the alternate screen. Bubble Tea does not enable mouse reporting, so
+   terminal-native mouse selection remains available.
 4. Run until the user exits.
 
 The CLI starts the TUI from:
@@ -74,6 +75,18 @@ Linux clipboard requirements: one of `wl-copy` (Wayland), `xclip`, or
 `xsel` must be installed. macOS uses `pbcopy`; Windows uses `clip.exe`.
 If no mechanism is available, Lato shows an error naming what to
 install — copied content never appears in error messages.
+
+On Windows, paste an API key into `/connect` with the terminal's paste command
+(usually `Ctrl+V` or `Ctrl+Shift+V`). Bracketed-paste terminals deliver the
+whole value as one event, so punctuation and embedded newlines are not treated
+as shortcuts. The API-key field remains masked and keys are never included in
+clipboard errors or diagnostics.
+
+Native terminal selection is terminal-dependent. Drag or double-click over the
+alternate-screen display, then use the terminal's normal copy action. Some
+terminals require holding `Shift` while selecting in an alternate screen, and
+some do not support selection there. `/copy` is the dependable application
+fallback for the complete latest assistant response.
 
 ## Input Handling
 

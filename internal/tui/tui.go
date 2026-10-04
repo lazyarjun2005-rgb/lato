@@ -35,7 +35,6 @@ func Start(sess *session.Session) error {
 	program := tea.NewProgram(
 		m,
 		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
 	)
 	asker.bind(program)
 

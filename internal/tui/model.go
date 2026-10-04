@@ -335,6 +335,15 @@ func (m *model) appendActivity(text string) {
 // handleKey processes keyboard input: global shortcuts first, then
 // message submission, then falls back to normal text-input editing.
 func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Bracketed paste is one input event. Forward it directly so pasted
+	// text cannot be mistaken for Enter, Ctrl+C, or another shortcut.
+	if msg.Paste {
+		var cmd tea.Cmd
+		m.input, cmd = m.input.Update(msg)
+		m.syncPalette()
+		return m, cmd
+	}
+
 	// Copy shortcuts. Alt+C works everywhere; Ctrl+Shift+C is honored
 	// only when the terminal reports it as a distinct key (kitty-style
 	// enhanced keyboards) — on legacy terminals it never reaches the
