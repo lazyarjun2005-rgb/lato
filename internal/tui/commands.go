@@ -318,7 +318,11 @@ func (m *model) ResumeTask(idOrEmpty string) error {
 		_ = m.session.Save()
 	}
 
-	stream, err := m.runtime.ResumeStream(context.Background(), chosen.ID)
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancel = cancel
+	m.canceling = false
+	m.escArmed = false
+	stream, err := m.runtime.ResumeStream(ctx, chosen.ID)
 	if err != nil {
 		m.waiting = false
 		return err
@@ -383,7 +387,11 @@ func (m *model) SubmitPrompt(prompt string) error {
 		})
 	}
 
-	stream, err := m.runtime.Stream(context.Background(), m.session.ProviderMessages())
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancel = cancel
+	m.canceling = false
+	m.escArmed = false
+	stream, err := m.runtime.Stream(ctx, m.session.ProviderMessages())
 	if err != nil {
 		return err
 	}

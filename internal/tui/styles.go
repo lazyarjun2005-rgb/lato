@@ -101,6 +101,16 @@ var (
 
 	activityStyle = lipgloss.NewStyle().
 			Foreground(colorMuted)
+	activityTitleStyle   = lipgloss.NewStyle().Bold(true).Foreground(colorInfo)
+	activityRunningStyle = lipgloss.NewStyle().Foreground(colorInfo)
+	activitySuccessStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+	activityErrorStyle   = lipgloss.NewStyle().Foreground(colorError)
+	todoTitleStyle       = lipgloss.NewStyle().Bold(true).Foreground(colorInfo)
+	todoPendingStyle     = lipgloss.NewStyle().Foreground(colorMuted)
+	todoActiveStyle      = lipgloss.NewStyle().Foreground(colorWarning)
+	todoCompleteStyle    = lipgloss.NewStyle().Foreground(colorSuccess)
+	todoFailedStyle      = lipgloss.NewStyle().Foreground(colorError)
+	workspaceStyle       = lipgloss.NewStyle().Foreground(colorMuted)
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(colorMuted)
@@ -183,6 +193,16 @@ func applyTheme(name string) {
 	systemLabelStyle = lipgloss.NewStyle().Bold(true).Foreground(colorMuted)
 	messageBodyStyle = lipgloss.NewStyle().Foreground(colorText)
 	activityStyle = lipgloss.NewStyle().Foreground(colorMuted)
+	activityTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(colorInfo)
+	activityRunningStyle = lipgloss.NewStyle().Foreground(colorInfo)
+	activitySuccessStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+	activityErrorStyle = lipgloss.NewStyle().Foreground(colorError)
+	todoTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(colorInfo)
+	todoPendingStyle = lipgloss.NewStyle().Foreground(colorMuted)
+	todoActiveStyle = lipgloss.NewStyle().Foreground(colorWarning)
+	todoCompleteStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+	todoFailedStyle = lipgloss.NewStyle().Foreground(colorError)
+	workspaceStyle = lipgloss.NewStyle().Foreground(colorMuted)
 	helpStyle = lipgloss.NewStyle().Foreground(colorMuted)
 	inputBorderStyle = lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(colorBorder).Padding(0, 1)
 	spinnerStyle = lipgloss.NewStyle().Foreground(colorAccent)

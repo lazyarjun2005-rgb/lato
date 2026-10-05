@@ -531,9 +531,8 @@ func TestPaletteViewRendersSelectionCursor(t *testing.T) {
 	}
 }
 
-// TestPaletteViewCapsRows pins Part O's compactness rule: no matter how
-// many commands exist, the strip stays bounded and says how many more
-// there are.
+// TestPaletteViewCapsRows pins the compactness rule while keeping the full
+// command list reachable through the cursor window.
 func TestPaletteViewCapsRows(t *testing.T) {
 	p := newSlashPalette(newRegistry())
 	p.sync("/")
@@ -542,8 +541,14 @@ func TestPaletteViewCapsRows(t *testing.T) {
 	if rows := strings.Count(view, "\n"); rows > maxPaletteRows+3 { // + hidden-hint + border
 		t.Errorf("palette rendered %d lines, cap exceeded:\n%s", rows, view)
 	}
-	if !strings.Contains(view, "more") {
-		t.Errorf("hidden-count hint missing:\n%s", view)
+	if !strings.Contains(view, "of") || !strings.Contains(view, "navigate") {
+		t.Errorf("navigation hint missing:\n%s", view)
+	}
+	for i := 0; i < len(p.matches); i++ {
+		p.moveDown()
+	}
+	if p.selected().name == "" {
+		t.Fatal("navigation lost the selected command")
 	}
 }
 

@@ -1,12 +1,46 @@
 package session
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestSessionStructuredActivityRoundTrip(t *testing.T) {
+	s := New()
+	s.AddMessage("user", "inspect the project")
+	s.Activity = []Activity{{Kind: "tool", Label: "read_file", Detail: "main.go", Status: "completed", Error: "", Duration: time.Second}}
+	s.Todos = []TodoItem{{Title: "Inspect project", Status: "completed"}, {Title: "Run tests", Status: "failed"}}
+	s.RunStatus = "completed"
+
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got Session
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.Activity) != 1 || got.Activity[0].Label != "read_file" {
+		t.Fatalf("activity did not round-trip: %+v", got.Activity)
+	}
+	if len(got.Todos) != 2 || got.Todos[1].Status != "failed" {
+		t.Fatalf("todos did not round-trip: %+v", got.Todos)
+	}
+}
+
+func TestOldSessionDefaultsStructuredFields(t *testing.T) {
+	var got Session
+	if err := json.Unmarshal([]byte(`{"id":"old","messages":[]}`), &got); err != nil {
+		t.Fatalf("unmarshal old session: %v", err)
+	}
+	if len(got.Activity) != 0 || len(got.Todos) != 0 || got.RunStatus != "" || got.Interrupted {
+		t.Fatalf("old session received unexpected state: %+v", got)
+	}
+}
 
 // isolateSessionDir points the CWD-relative session store at a temp
 // directory for the duration of one test.

@@ -9,6 +9,7 @@ package clipboard
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -19,6 +20,12 @@ import (
 // writeAll delegates to atotto (pbcopy/clip.exe/xclip/xsel) and is
 // swappable in tests.
 var writeAll = clipboard.WriteAll
+
+// writeOSC52 is a seam for tests and avoids putting terminal control
+// sequences into test output.
+var writeOSC52 = func(text string) error {
+	return writeOSC52To(os.Stdout, text)
+}
 
 // commandRunner runs one clipboard helper with text piped to stdin. It
 // exists so tests can fake process execution.
@@ -101,6 +108,12 @@ func Write(text string) error {
 
 	if err := writeAll(text); err != nil {
 		attempted = append(attempted, "system clipboard backend")
+		if runtime.GOOS == "windows" {
+			if err := writeOSC52(text); err == nil {
+				return nil
+			}
+			attempted = append(attempted, "OSC 52")
+		}
 		hint := ""
 		switch runtime.GOOS {
 		case "linux":

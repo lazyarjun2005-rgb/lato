@@ -1,10 +1,21 @@
 package clipboard
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
 )
+
+func TestWriteOSC52ToEncodesPayload(t *testing.T) {
+	var out bytes.Buffer
+	if err := writeOSC52To(&out, "hello\nworld"); err != nil {
+		t.Fatalf("writeOSC52To() error = %v", err)
+	}
+	if got, want := out.String(), "\x1b]52;c;aGVsbG8Kd29ybGQ=\x07"; got != want {
+		t.Fatalf("OSC 52 = %q, want %q", got, want)
+	}
+}
 
 func TestWriteEmptyTextRejected(t *testing.T) {
 	if err := Write(""); err == nil || !strings.Contains(err.Error(), "empty") {
