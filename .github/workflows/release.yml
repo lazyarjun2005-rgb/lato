@@ -23,6 +23,21 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Validate installer versions
+        shell: bash
+        run: |
+          expected="${GITHUB_REF_NAME}"
+          shell_version="$(sed -n 's/^VERSION="\([^"]*\)"$/\1/p' scripts/install.sh)"
+          powershell_version="$(sed -n "s/^\$Version = '\([^']*\)'$/\1/p" scripts/install.ps1)"
+          test "$shell_version" = "$expected" || {
+            echo "scripts/install.sh targets $shell_version, expected $expected" >&2
+            exit 1
+          }
+          test "$powershell_version" = "$expected" || {
+            echo "scripts/install.ps1 targets $powershell_version, expected $expected" >&2
+            exit 1
+          }
+
       - name: Test
         run: go test ./... -count=1
 
