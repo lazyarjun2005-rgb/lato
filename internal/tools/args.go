@@ -95,6 +95,12 @@ func checkType(key string, v any, expected string) error {
 		default:
 			return &ArgumentError{Field: key, Reason: "must be a boolean"}
 		}
+	case "array":
+		switch v.(type) {
+		case []any, []map[string]any:
+		default:
+			return &ArgumentError{Field: key, Reason: "must be an array"}
+		}
 	}
 	return nil
 }

@@ -3,8 +3,10 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -38,11 +40,14 @@ const (
 // the runtime's streaming agent loop. See the package doc for what it
 // deliberately does not add.
 type model struct {
-	runtime  *runtime.Runtime
-	config   *config.Config
-	session  *session.Session
-	registry *command.Registry
-	stream   <-chan runtime.Event
+	runtime   *runtime.Runtime
+	config    *config.Config
+	session   *session.Session
+	registry  *command.Registry
+	stream    <-chan runtime.Event
+	cancel    context.CancelFunc
+	escArmed  bool
+	canceling bool
 
 	assistantBuffer string
 
@@ -98,6 +103,8 @@ type model struct {
 	width, height int
 	waiting       bool // true while a runTask command is in flight
 	status        string
+	activities    []activityItem
+	todos         []runtime.TodoItem
 	quitting      bool
 	ready         bool // true once the first WindowSizeMsg has arrived
 }
@@ -151,7 +158,50 @@ func newModel(cfg *config.Config, sess *session.Session, asker *uiAsker, r *runt
 		palette:      newSlashPalette(registry),
 		asker:        asker,
 		themeName:    cfg.Theme,
+		activities:   restoreActivities(sess),
+		todos:        restoreTodos(sess),
 	}
+}
+
+func restoreActivities(sess *session.Session) []activityItem {
+	if sess == nil || len(sess.Activity) == 0 {
+		return nil
+	}
+	items := make([]activityItem, 0, len(sess.Activity))
+	for _, item := range sess.Activity {
+		items = append(items, activityFromSession(item))
+	}
+	return items
+}
+
+func restoreTodos(sess *session.Session) []runtime.TodoItem {
+	if sess == nil || len(sess.Todos) == 0 {
+		return nil
+	}
+	todos := make([]runtime.TodoItem, 0, len(sess.Todos))
+	for _, item := range sess.Todos {
+		todos = append(todos, runtime.TodoItem{Title: item.Title, Status: item.Status})
+	}
+	return todos
+}
+
+func (m *model) saveStructuredState(status string, interrupted bool) {
+	if m.session == nil {
+		return
+	}
+	activity := make([]session.Activity, 0, len(m.activities))
+	for _, item := range m.activities {
+		activity = append(activity, item.sessionValue())
+	}
+	todos := make([]session.TodoItem, 0, len(m.todos))
+	for _, item := range m.todos {
+		todos = append(todos, session.TodoItem{Title: item.Title, Status: item.Status})
+	}
+	m.session.Activity = activity
+	m.session.Todos = todos
+	m.session.RunStatus = status
+	m.session.Interrupted = interrupted
+	_ = m.session.Save()
 }
 
 // sessionEntries converts a session's saved messages into the transcript
@@ -159,9 +209,14 @@ func newModel(cfg *config.Config, sess *session.Session, asker *uiAsker, r *runt
 // switching sessions via the picker go through this single function, so
 // the conversion logic never has to be kept in sync in two places.
 func sessionEntries(sess *session.Session) []chatEntry {
-	entries := make([]chatEntry, 0, len(sess.Messages))
+	type persistedEntry struct {
+		entry chatEntry
+		at    time.Time
+		order int
+	}
+	items := make([]persistedEntry, 0, len(sess.Messages)+len(sess.Activity))
 
-	for _, msg := range sess.Messages {
+	for i, msg := range sess.Messages {
 		var entryRole role
 
 		switch msg.Role {
@@ -173,12 +228,30 @@ func sessionEntries(sess *session.Session) []chatEntry {
 			continue
 		}
 
-		entries = append(entries, chatEntry{
-			Role:    entryRole,
-			Content: msg.Content,
-		})
+		items = append(items, persistedEntry{entry: chatEntry{Role: entryRole, Content: msg.Content}, at: msg.Time, order: i})
 	}
 
+	base := len(sess.Messages)
+	for i, activity := range sess.Activity {
+		item := activityFromSession(activity)
+		items = append(items, persistedEntry{
+			entry: chatEntry{Role: roleActivity, Content: restoredActivityText(item)},
+			at:    activity.StartedAt, order: base + i,
+		})
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].at.IsZero() != items[j].at.IsZero() {
+			return !items[i].at.IsZero()
+		}
+		if !items[i].at.Equal(items[j].at) {
+			return items[i].at.Before(items[j].at)
+		}
+		return items[i].order < items[j].order
+	})
+	entries := make([]chatEntry, 0, len(items))
+	for _, item := range items {
+		entries = append(entries, item.entry)
+	}
 	return entries
 }
 
@@ -200,6 +273,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if msg.Type == tea.KeyCtrlC {
+			if m.cancel != nil {
+				m.cancel()
+			}
+			m.quitting = true
+			return m, tea.Quit
+		}
 		// A pending permission decision outranks every other modal:
 		// a blocked action must never be bypassable by opening pickers.
 		if m.perm != nil {
@@ -257,34 +337,78 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case runtime.EventToolStart:
 			m.finishAssistantStream()
+			m.activityStart(msg.Event.ToolCall)
+			m.saveStructuredState("running", false)
 			m.status = formatToolStart(msg.Event.ToolCall)
 		case runtime.EventToolFinish:
 			m.status = ""
+			m.activityFinish(msg.Event.ToolResult)
 			m.appendActivity(formatToolFinish(msg.Event.ToolResult))
+			m.saveStructuredState("running", false)
 		case runtime.EventMemory:
 			m.appendActivity(fmt.Sprintf("Memory: %d relevant project fact(s)", msg.Event.Count))
+		case runtime.EventRetry:
+			m.status = fmt.Sprintf("Retrying model call (%d/%d)", msg.Event.Attempt, msg.Event.MaxAttempt)
+			m.activities = appendBoundedActivity(m.activities, activityItem{
+				Kind: "recovery", Label: "Retrying model call",
+				Detail: fmt.Sprintf("attempt %d/%d", msg.Event.Attempt, msg.Event.MaxAttempt),
+				Status: activityRunning, Started: time.Now(),
+			})
+			m.saveStructuredState("running", false)
+		case runtime.EventTodos:
+			m.todos = append([]runtime.TodoItem(nil), msg.Event.Todos...)
+			m.saveStructuredState("running", false)
 		}
 
 		m.refreshTranscript()
 		return m, waitForChunk(m.stream)
 
 	case streamDoneMsg:
+		if msg.cancelled || m.canceling {
+			m.finishLiveActivityCancelled()
+			m.waiting = false
+			m.stream = nil
+			m.status = "Operation cancelled"
+			m.cancel = nil
+			m.canceling = false
+			m.appendActivity("Operation cancelled")
+			m.saveStructuredState("cancelled", true)
+			m.refreshTranscript()
+			return m, nil
+		}
 		m.waiting = false
 		m.stream = nil
 		m.status = ""
+		m.escArmed = false
+		m.cancel = nil
+		m.finishLiveActivity(true, nil)
 		m.finishAssistantStream()
 		if text := strings.TrimSpace(m.assistantBuffer); text != "" {
 			m.session.AddMessage("assistant", text)
 			_ = m.session.Save()
 		}
+		m.saveStructuredState("completed", false)
 
 		m.assistantBuffer = ""
 		m.refreshTranscript()
 		return m, nil
 
 	case streamErrMsg:
+		if m.canceling {
+			m.finishLiveActivityCancelled()
+			m.waiting = false
+			m.stream = nil
+			m.status = "Operation cancelled"
+			m.cancel = nil
+			m.canceling = false
+			m.appendActivity("Operation cancelled")
+			m.saveStructuredState("cancelled", true)
+			m.refreshTranscript()
+			return m, nil
+		}
 		m.waiting = false
 		m.status = ""
+		m.finishLiveActivity(false, msg.err)
 		m.finishAssistantStream()
 
 		m.entries = append(m.entries, chatEntry{
@@ -293,6 +417,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		})
 
 		m.stream = nil
+		m.escArmed = false
+		m.cancel = nil
+		m.saveStructuredState("failed", false)
 
 		m.refreshTranscript()
 
@@ -388,9 +515,55 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if msg.Type == tea.KeyEsc && m.waiting {
+		if !m.escArmed {
+			m.escArmed = true
+			m.status = "Cancellation requested — press Esc again to stop"
+			m.appendActivity("Cancellation requested — press Esc again to stop")
+			m.saveStructuredState("interrupted", true)
+			m.refreshTranscript()
+			return m, nil
+		}
+		m.canceling = true
+		if m.cancel != nil {
+			m.cancel()
+		}
+		m.status = "Cancelling operation"
+		return m, nil
+	}
+
+	if m.input.Value() == "" {
+		switch msg.Type {
+		case tea.KeyUp:
+			m.viewport.ScrollUp(1)
+			return m, nil
+		case tea.KeyDown:
+			m.viewport.ScrollDown(1)
+			return m, nil
+		case tea.KeyPgUp:
+			m.viewport.PageUp()
+			return m, nil
+		case tea.KeyPgDown:
+			m.viewport.PageDown()
+			return m, nil
+		case tea.KeyHome:
+			m.viewport.GotoTop()
+			return m, nil
+		case tea.KeyEnd:
+			m.viewport.GotoBottom()
+			return m, nil
+		}
+	}
+
 	switch msg.Type {
 
 	case tea.KeyCtrlC, tea.KeyEsc:
+		if msg.Type == tea.KeyEsc {
+			if m.palette != nil && m.palette.engaged() {
+				m.palette.close()
+			}
+			return m, nil
+		}
 		m.quitting = true
 		return m, tea.Quit
 
@@ -483,10 +656,17 @@ func (m model) submitInput() (tea.Model, tea.Cmd) {
 	}
 
 	m.waiting = true
+	m.escArmed = false
+	m.canceling = false
+	ctx, cancel := context.WithCancel(context.Background())
+	m.cancel = cancel
+	m.activities = []activityItem{{Kind: "planning", Label: "Planning", Detail: "Preparing the request", Status: activityRunning, Started: time.Now()}}
+	m.todos = nil
+	m.saveStructuredState("running", false)
 	m.refreshTranscript()
 
 	stream, err := m.runtime.Stream(
-		context.Background(),
+		ctx,
 		m.session.ProviderMessages(),
 	)
 	if err != nil {
@@ -798,12 +978,23 @@ func (m *model) applySessionSwitch(id string) error {
 	}
 
 	m.stream = nil
+	m.pendingStream = nil
+	if m.cancel != nil {
+		m.cancel()
+		m.cancel = nil
+	}
 	m.waiting = false
 	m.status = ""
 	m.assistantBuffer = ""
+	m.todos = nil
+	m.activities = nil
 
 	m.session = sess
 	m.entries = sessionEntries(sess)
+	m.activities = restoreActivities(sess)
+	m.todos = restoreTodos(sess)
+	m.escArmed = false
+	m.canceling = false
 	m.refreshTranscript()
 	return nil
 }
@@ -812,7 +1003,7 @@ func (m *model) applySessionSwitch(id string) error {
 // While the slash palette is engaged its rows are subtracted from the
 // transcript area so the whole UI always fits the terminal exactly.
 func (m *model) layout() {
-	transcriptHeight := m.height - headerHeight - footerHeight - m.paletteExtraLines()
+	transcriptHeight := m.height - headerHeight - footerHeight - m.paletteExtraLines() - m.livePanelLines()
 	if transcriptHeight < minTranscriptHeight {
 		transcriptHeight = minTranscriptHeight
 	}
@@ -828,6 +1019,17 @@ func (m *model) layout() {
 	m.input.Width = inputWidth
 
 	m.refreshTranscript()
+}
+
+func (m *model) livePanelLines() int {
+	lines := 0
+	if len(m.activities) > 0 {
+		lines += minInt(len(m.activities), 4) + 1
+	}
+	if len(m.todos) > 0 {
+		lines += minInt(len(m.todos), 5) + 1
+	}
+	return lines
 }
 
 // paletteExtraLines reports how many terminal rows the engaged palette
@@ -851,10 +1053,11 @@ func (m *model) refreshTranscript() {
 	if m.viewport.Width == 0 {
 		return // not sized yet; layout() will call this again once it is
 	}
+	wasAtBottom := m.viewport.AtBottom()
 	m.viewport.SetContent(renderTranscript(m.entries, m.viewport.Width))
 	if len(m.entries) == 0 {
 		m.viewport.GotoTop()
-	} else {
+	} else if wasAtBottom {
 		m.viewport.GotoBottom()
 	}
 }
@@ -924,14 +1127,77 @@ func (m model) View() string {
 // between the transcript and the input box while it is engaged, and
 // falls back to the plain footer otherwise.
 func (m model) renderFooterWithPalette() string {
+	panels := m.renderLivePanels()
 	if m.palette == nil {
-		return m.renderFooter()
+		if panels == "" {
+			return m.renderFooter()
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, panels, m.renderFooter())
 	}
 	pv := m.palette.view(m.width)
 	if pv == "" {
-		return m.renderFooter()
+		if panels == "" {
+			return m.renderFooter()
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, panels, m.renderFooter())
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, pv, m.renderFooter())
+	if panels == "" {
+		return lipgloss.JoinVertical(lipgloss.Left, pv, m.renderFooter())
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, panels, pv, m.renderFooter())
+}
+
+func (m model) renderLivePanels() string {
+	var sections []string
+	if len(m.activities) > 0 {
+		rows := []string{activityTitleStyle.Render("Activity")}
+		start := len(m.activities) - 4
+		if start < 0 {
+			start = 0
+		}
+		for _, item := range m.activities[start:] {
+			style := activityRunningStyle
+			if item.Status == activityComplete {
+				style = activitySuccessStyle
+			} else if item.Status == activityFailed {
+				style = activityErrorStyle
+			}
+			rows = append(rows, style.Render(item.line(maxInt(m.width-2, 1))))
+		}
+		sections = append(sections, strings.Join(rows, "\n"))
+	}
+	if len(m.todos) > 0 {
+		rows := []string{todoTitleStyle.Render("Tasks")}
+		limit := minInt(len(m.todos), 5)
+		for _, todo := range m.todos[:limit] {
+			icon := "○"
+			style := todoPendingStyle
+			switch todo.Status {
+			case "active":
+				icon, style = "→", todoActiveStyle
+			case "completed":
+				icon, style = "✓", todoCompleteStyle
+			case "failed":
+				icon, style = "✗", todoFailedStyle
+			}
+			rows = append(rows, style.Render(truncateDisplay(icon+" "+todo.Title, maxInt(m.width-2, 1))))
+		}
+		sections = append(sections, strings.Join(rows, "\n"))
+	}
+	return strings.Join(sections, "\n")
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func (m model) renderHeader() string {
@@ -939,7 +1205,18 @@ func (m model) renderHeader() string {
 	meta := headerMetaStyle.Render(
 		fmt.Sprintf("agent: %s  ·  %s/%s · %s", m.agentName, m.providerName, m.modelName, m.effortName),
 	)
-	return lipgloss.JoinHorizontal(lipgloss.Top, title, " ", meta)
+	path := ""
+	if m.runtime != nil {
+		workspace := m.runtime.Workspace()
+		path = workspace.Root
+		if path == "" {
+			path = workspace.CWD
+		}
+	}
+	return lipgloss.JoinVertical(lipgloss.Left,
+		lipgloss.JoinHorizontal(lipgloss.Top, title, " ", meta),
+		workspaceStyle.Render("workspace: "+displayWorkspacePath(path, maxInt(m.width-11, 1))),
+	)
 }
 
 func (m model) renderFooter() string {

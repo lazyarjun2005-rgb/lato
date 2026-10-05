@@ -7,7 +7,7 @@ import (
 )
 
 type streamEventMsg struct{ Event runtime.Event }
-type streamDoneMsg struct{}
+type streamDoneMsg struct{ cancelled bool }
 type streamErrMsg struct{ err error }
 
 func waitForChunk(stream <-chan runtime.Event) tea.Cmd {

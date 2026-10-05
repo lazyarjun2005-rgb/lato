@@ -24,6 +24,8 @@ func New() *Session {
 		CreatedAt: now,
 		UpdatedAt: now,
 		Messages:  []Message{},
+		Activity:  []Activity{},
+		Todos:     []TodoItem{},
 	}
 }
 

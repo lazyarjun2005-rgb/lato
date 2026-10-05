@@ -18,6 +18,25 @@ type Message struct {
 	Time    time.Time `json:"time"`
 }
 
+// Activity is a bounded, user-facing execution summary. It intentionally
+// contains no provider reasoning or raw terminal rendering.
+type Activity struct {
+	Kind      string        `json:"kind"`
+	Label     string        `json:"label"`
+	Detail    string        `json:"detail,omitempty"`
+	Status    string        `json:"status"`
+	Error     string        `json:"error,omitempty"`
+	StartedAt time.Time     `json:"started_at,omitempty"`
+	EndedAt   time.Time     `json:"ended_at,omitempty"`
+	Duration  time.Duration `json:"duration,omitempty"`
+}
+
+// TodoItem is the current structured Todo snapshot for a session.
+type TodoItem struct {
+	Title  string `json:"title"`
+	Status string `json:"status"`
+}
+
 // Session represents a user session, containing an ID, timestamps for
 // creation and updates, a list of messages exchanged during the session,
 // and an optional human-readable title. Title is additive schema: older
@@ -29,6 +48,13 @@ type Session struct {
 	UpdatedAt time.Time `json:"updated_at"`
 
 	Messages []Message `json:"messages"`
+
+	// Activity and Todos are additive fields. Older session files decode with
+	// nil slices and remain fully usable.
+	Activity    []Activity `json:"activity,omitempty"`
+	Todos       []TodoItem `json:"todos,omitempty"`
+	RunStatus   string     `json:"run_status,omitempty"`
+	Interrupted bool       `json:"interrupted,omitempty"`
 }
 
 // Rename gives the session a persistent human-readable title and bumps
@@ -120,6 +146,10 @@ func (s *Session) Branch(title string) *Session {
 		b.Title = s.DefaultBranchTitle()
 	}
 	b.Messages = append([]Message(nil), s.Messages...)
+	b.Activity = append([]Activity(nil), s.Activity...)
+	b.Todos = append([]TodoItem(nil), s.Todos...)
+	b.RunStatus = s.RunStatus
+	b.Interrupted = s.Interrupted
 	return b
 }
 

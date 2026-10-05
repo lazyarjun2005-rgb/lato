@@ -17,6 +17,8 @@ const (
 	EventDone
 	EventError
 	EventMemory
+	EventRetry
+	EventTodos
 )
 
 // Backwards-compatible names for the initial streaming tool-call API.
@@ -37,6 +39,12 @@ type ToolResult struct {
 	Err        error
 }
 
+// TodoItem is the ephemeral task state exposed by the todo_write tool.
+type TodoItem struct {
+	Title  string `json:"title"`
+	Status string `json:"status"`
+}
+
 // Event is emitted by StreamChat as the shared runtime loop progresses.
 // EventDone contains the final model response. EventError contains the error
 // that stopped the run.
@@ -52,4 +60,12 @@ type Event struct {
 	// Count carries the number of relevant project-memory entries that
 	// were injected for this request (EventMemory only).
 	Count int
+
+	// Retry fields describe a transient provider recovery attempt.
+	Attempt    int
+	MaxAttempt int
+	Delay      time.Duration
+
+	// Todos carries the current in-memory todo snapshot.
+	Todos []TodoItem
 }

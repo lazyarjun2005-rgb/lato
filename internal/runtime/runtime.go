@@ -5,6 +5,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -705,6 +706,13 @@ func (r *Runtime) run(ctx context.Context, messages []providers.Message, emit fu
 				Success:    !result.IsError,
 				Duration:   time.Since(started),
 			}
+			if tc.Name == "todo_write" && !result.IsError {
+				if todos, err := decodeTodoItems(result.Content); err == nil {
+					if !emit(Event{Type: EventTodos, Todos: todos}) {
+						return
+					}
+				}
+			}
 
 			// Phase 2B/2C: consecutive failure tracking.
 			// Timeouts are resource limits, not tool failures the model can fix.
@@ -793,6 +801,9 @@ func (r *Runtime) runModelTurn(ctx context.Context, messages []providers.Message
 			// Initial connection failure — retry if transient and attempts remain.
 			if isTransientProviderErr(err) && attempt < maxAttempts-1 {
 				delay := retryDelay(attempt)
+				if !emit(Event{Type: EventRetry, Attempt: attempt + 1, MaxAttempt: maxAttempts, Delay: delay, Err: err}) {
+					return providers.Response{}, context.Canceled
+				}
 				select {
 				case <-time.After(delay):
 				case <-ctx.Done():
@@ -810,6 +821,9 @@ func (r *Runtime) runModelTurn(ctx context.Context, messages []providers.Message
 				// Stream error — retry if transient, no content emitted, and attempts remain.
 				if isTransientProviderErr(event.Err) && !contentEmitted && attempt < maxAttempts-1 {
 					delay := retryDelay(attempt)
+					if !emit(Event{Type: EventRetry, Attempt: attempt + 1, MaxAttempt: maxAttempts, Delay: delay, Err: event.Err}) {
+						return providers.Response{}, context.Canceled
+					}
 					select {
 					case <-time.After(delay):
 					case <-ctx.Done():
@@ -847,6 +861,16 @@ func (r *Runtime) runModelTurn(ctx context.Context, messages []providers.Message
 	}
 
 	return providers.Response{}, fmt.Errorf("provider retries exhausted after %d attempts", maxAttempts)
+}
+
+func decodeTodoItems(content string) ([]TodoItem, error) {
+	var payload struct {
+		Todos []TodoItem `json:"todos"`
+	}
+	if err := json.Unmarshal([]byte(content), &payload); err != nil {
+		return nil, err
+	}
+	return payload.Todos, nil
 }
 
 // isTransientProviderErr reports whether the error is likely transient

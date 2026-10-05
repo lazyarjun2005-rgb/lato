@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	goruntime "runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -32,10 +33,14 @@ func Start(sess *session.Session) error {
 	asker := newUIAsker()
 	m := newModel(cfg, sess, asker, rt)
 
-	program := tea.NewProgram(
-		m,
-		tea.WithAltScreen(),
-	)
+	options := []tea.ProgramOption{tea.WithAltScreen()}
+	// Bubble Tea's cell-motion mode captures click/release/drag events as
+	// well as wheel events. Keep Windows native selection intact; this API
+	// version has no wheel-only startup mode.
+	if goruntime.GOOS != "windows" {
+		options = append(options, tea.WithMouseCellMotion())
+	}
+	program := tea.NewProgram(m, options...)
 	asker.bind(program)
 
 	_, err = program.Run()

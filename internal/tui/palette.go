@@ -34,6 +34,7 @@ type slashPalette struct {
 	all     []commandSuggestion // registry snapshot, registration order
 	matches []commandSuggestion
 	cursor  int
+	offset  int
 	queried bool // false while the input has no "/" token yet
 }
 
@@ -85,6 +86,7 @@ func (p *slashPalette) sync(rawInput string) {
 	if p.cursor >= len(p.matches) {
 		p.cursor = 0
 	}
+	p.ensureVisible()
 }
 
 // engaged reports whether the palette should be visible: the user is
@@ -113,6 +115,7 @@ func (p *slashPalette) accept() string {
 	}
 	p.matches = nil
 	p.cursor = 0
+	p.offset = 0
 	return "/" + s.name
 }
 
@@ -125,6 +128,7 @@ func (p *slashPalette) moveUp() {
 	if p.cursor < 0 {
 		p.cursor = len(p.matches) - 1
 	}
+	p.ensureVisible()
 }
 
 func (p *slashPalette) moveDown() {
@@ -135,12 +139,30 @@ func (p *slashPalette) moveDown() {
 	if p.cursor >= len(p.matches) {
 		p.cursor = 0
 	}
+	p.ensureVisible()
+}
+
+func (p *slashPalette) ensureVisible() {
+	if p.cursor < p.offset {
+		p.offset = p.cursor
+	}
+	if p.cursor >= p.offset+maxPaletteRows {
+		p.offset = p.cursor - maxPaletteRows + 1
+	}
+	maxOffset := len(p.matches) - maxPaletteRows
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if p.offset > maxOffset {
+		p.offset = maxOffset
+	}
 }
 
 // close hides the palette until the next slash token starts.
 func (p *slashPalette) close() {
 	p.matches = nil
 	p.cursor = 0
+	p.offset = 0
 }
 
 // view renders the compact suggestion strip shown above the input:
@@ -161,10 +183,11 @@ func (p *slashPalette) view(width int) string {
 
 	var b strings.Builder
 	for i := 0; i < rows; i++ {
-		s := p.matches[i]
+		matchIndex := p.offset + i
+		s := p.matches[matchIndex]
 		cursor := "  "
 		style := paletteMetaStyle
-		if i == p.cursor {
+		if matchIndex == p.cursor {
 			cursor = "› "
 			style = paletteSelectedStyle
 		}
@@ -175,8 +198,8 @@ func (p *slashPalette) view(width int) string {
 			b.WriteString("\n")
 		}
 	}
-	if hidden := len(p.matches) - rows; hidden > 0 {
-		fmt.Fprintf(&b, "\n  %d more — keep typing", hidden)
+	if p.offset > 0 || p.offset+rows < len(p.matches) {
+		fmt.Fprintf(&b, "\n  %d-%d of %d · ↑/↓ navigate", p.offset+1, p.offset+rows, len(p.matches))
 	}
-	return paletteStyle.Width(width - 2).Render(strings.TrimRight(b.String(), "\n"))
+	return paletteStyle.Width(maxInt(width-2, 1)).Render(strings.TrimRight(b.String(), "\n"))
 }
