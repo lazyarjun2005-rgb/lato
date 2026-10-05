@@ -7,10 +7,10 @@
 <p>A terminal-native AI coding assistant built in Go — one binary, local configuration, and model access you choose yourself.</p>
 
 <p>
-<a href="https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.2.1"><img alt="Latest release: v1.2.1" src="https://img.shields.io/github/v/release/lazyarjun2005-rgb/lato?style=flat-square" height="20"></a>
+<a href="https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.3.0"><img alt="Latest release: v1.3.0" src="https://img.shields.io/github/v/release/lazyarjun2005-rgb/lato?style=flat-square" height="20"></a>
 <a href="https://github.com/lazyarjun2005-rgb/lato"><img alt="Language: Go" src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white&style=flat-square" height="20"></a>
 <a href="https://github.com/lazyarjun2005-rgb/lato/blob/master/LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/github/license/lazyarjun2005-rgb/lato?style=flat-square" height="20"></a>
-<a href="https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.2.1"><img alt="Platforms: Linux, macOS, Windows" src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey?style=flat-square" height="20"></a>
+<a href="https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.3.0"><img alt="Platforms: Linux, macOS, Windows" src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey?style=flat-square" height="20"></a>
 </p>
 
 </div>
@@ -52,13 +52,13 @@ and no shell configuration edits.
 **Linux / macOS**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.1/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.3.0/scripts/install.sh | sh
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.1/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.3.0/scripts/install.ps1 | iex
 ```
 
 | Platform | Installed to |
@@ -72,7 +72,7 @@ line to add instead of editing your shell files.
 **Verify the installation**
 
 ```bash
-lato --version   # lato v1.2.1
+lato --version   # lato v1.3.0
 lato doctor      # binary location, PATH, config, provider connections, workspace
 ```
 
@@ -89,7 +89,7 @@ two always agree:
 npm install -g lato-cli@1.0.9   # legacy: v1.0.9
 ```
 
-The published `lato-cli` package is still on `1.0.9`. For **v1.2.1**, use the
+The published `lato-cli` package is still on `1.0.9`. For **v1.3.0**, use the
 shell or PowerShell installer above.
 
 **Build from source** — requires Go 1.26 or later:
@@ -112,9 +112,9 @@ To install into your Go bin directory instead: `go install .`
 
 </details>
 
-**Release:** [v1.2.1](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.2.1) ·
+**Release:** [v1.3.0](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.3.0) ·
 [all releases](https://github.com/lazyarjun2005-rgb/lato/releases) ·
-[release workflow run](https://github.com/lazyarjun2005-rgb/lato/actions/runs/37215463314)
+[release workflow run](https://github.com/lazyarjun2005-rgb/lato/actions/runs/37289847450)
 
 ---
 
@@ -366,7 +366,7 @@ nothing is saved until you confirm.
 **1. Install Lato**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.2.1/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lazyarjun2005-rgb/lato/v1.3.0/scripts/install.sh | sh
 ```
 
 **2. Run a local model (optional, for a fully offline setup)**
@@ -492,7 +492,7 @@ and the effort profile.
 | `lato run <task>` | Run a one-shot prompt and print the response. |
 | `lato doctor` | Report installation, configuration, and environment. |
 | `lato --resume <id>` | Resume a saved session. |
-| `lato --version` | Print the version (`lato v1.2.1`). |
+| `lato --version` | Print the version (`lato v1.3.0`). |
 
 ### Agent tools
 
@@ -593,7 +593,7 @@ Every release publishes six binaries plus a `checksums.txt`.
 | Windows | amd64 | `lato-windows-amd64.exe` |
 | Windows | arm64 | `lato-windows-arm64.exe` |
 
-**[Download v1.2.1 →](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.2.1)**
+**[Download v1.3.0 →](https://github.com/lazyarjun2005-rgb/lato/releases/tag/v1.3.0)**
 
 <details>
 <summary><b>Manual download and checksum verification</b></summary>
@@ -601,16 +601,16 @@ Every release publishes six binaries plus a `checksums.txt`.
 <br>
 
 ```bash
-curl -fLO https://github.com/lazyarjun2005-rgb/lato/releases/download/v1.2.1/lato-linux-amd64
-curl -fLO https://github.com/lazyarjun2005-rgb/lato/releases/download/v1.2.1/checksums.txt
+curl -fLO https://github.com/lazyarjun2005-rgb/lato/releases/download/v1.3.0/lato-linux-amd64
+curl -fLO https://github.com/lazyarjun2005-rgb/lato/releases/download/v1.3.0/checksums.txt
 sha256sum -c checksums.txt --ignore-missing
 chmod +x lato-linux-amd64 && mv lato-linux-amd64 ~/.local/bin/lato
 ```
 
-The published `lato-linux-amd64` SHA-256 for v1.2.1 is:
+The published `lato-linux-amd64` SHA-256 for v1.3.0 is:
 
 ```text
-0857c79f6af88a23acd46fc3c2be0826fe7f85b4a12c06e4a90734ab8f5be6c2
+6041e9a5fd04b8b1785dc6b458f7116330c188350879c46eb48db397dc21f1a8
 ```
 
 The shell and PowerShell installers already perform this verification for you.
@@ -729,7 +729,7 @@ Copyright 2026 Jehoshua M
 [Documentation](docs/Index.md) ·
 [Apache-2.0](LICENSE)
 
-Current release: **v1.2.1** — terminal-native, local-first, written in Go.
+Current release: **v1.3.0** — terminal-native, local-first, written in Go.
 
 </sub>
 
